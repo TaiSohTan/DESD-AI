@@ -5,4 +5,4 @@ Project Repository for the DESD And Advanced AI Module. Please get familiarized 
 2. Set up .venv
 3. Install Django
 
-Fuck you all
+mmlknl

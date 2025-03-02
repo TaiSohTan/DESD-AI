@@ -1,2 +1,2 @@
-from django import path,include
+from django.urls import path,include
 from . import views 

@@ -1,9 +1,8 @@
-version: '3'
 services:
   web:
     build: .
     ports:
-      - "5000:5000"
+      - "8000:8000"
     volumes:
       - .:/app
     depends_on:
@@ -12,8 +11,11 @@ services:
       - DATABASE_URL=postgres://user:password@db:5432/database
 
   db:
-    image: postgres
+    image: postgres:17.1
+    restart: unless-stopped     
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=database
+      - POSTGRES_DB= ${DB_NAME}
+      - POSTGRES_USER= ${DB_USER}
+      - POSTGRES_PASSWORD= ${DB_PASSWORD}
+    ports:
+      - "5432:5432"

@@ -1,11 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+import datetime 
 
 # Create your models here.
 
-# Defining the Roles of Eacb of the Users
+# Defining the Roles of Each of the Users
 class Roles():
-    Admin = 'admin'
+    Admin = 'Admin'
     AIEngineer = 'AIEngineer'
     FinanceDepartment = 'FinanceDepartment'
     EndUser = 'EndUser'
@@ -13,8 +14,8 @@ class Roles():
 # Defining the CustomUser class which is an extension of the AbstractUser class 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique= True ,max_length = 100)
+    name = models.CharField(max_length = 50)
     role = models.CharField(
-        max_length = 10,
         choices = Roles.choices,
         default = Roles.EndUser
     )

@@ -1,19 +1,27 @@
 FROM python:3.10-slim
 
-# Set the working directory to /app
+# Set the environment variables
+ENV PYTHONUNBUFFERED=1 \
+  PYTHONDONTWRITEBYTECODE=1
+
+# Set the working directory
 WORKDIR /app
 
-# Copy the requirements file
-COPY requirements.txt .
-
 # Install the dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt /app/
+RUN pip install --upgrade pip && \
+  pip install -r requirements.txt
 
-# Copy the application code
-COPY . .
+# Copy the project
+COPY . /app/
 
-# Expose the port
+# Copy the entrypoint script to the image
+COPY entrypoint.sh /app/
+# Make the entrypoint script executable
+RUN chmod +x ./entrypoint.sh
+
+# Set the port
 EXPOSE 8000
 
-# Run the command to start the development server
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Entrypoint script
+ENTRYPOINT ["./entrypoint.sh"]

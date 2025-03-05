@@ -1,21 +1,30 @@
 services:
-  web:
-    build: .
+  db:
+      image: postgres:15
+      restart: unless-stopped     
+      environment:
+        - POSTGRES_DB= ${DB_NAME}
+        - POSTGRES_USER= ${DB_USER}
+        - POSTGRES_PASSWORD= ${DB_PASSWORD}
+      ports:
+        - "5432:5432"
+      volumes:
+        - desd-ai:/var/lib/postgresql/data
+
+  api:
+    image: desd-ai:1.0
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./:/app
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
+    env_file:
+      - .env
     depends_on:
       - db
-    environment:
-      - DATABASE_URL=postgres://user:password@db:5432/database
 
-  db:
-    image: postgres:17.1
-    restart: unless-stopped     
-    environment:
-      - POSTGRES_DB= ${DB_NAME}
-      - POSTGRES_USER= ${DB_USER}
-      - POSTGRES_PASSWORD= ${DB_PASSWORD}
-    ports:
-      - "5432:5432"
+volumes:
+  desd-ai:

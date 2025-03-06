@@ -31,4 +31,4 @@ class CustomUserViewSet(viewsets.ModelViewSet):
             user.save()
             return Response({'status':'Role Updated'}, status = status.HTTP_200_OK)
         else :
-            return Response({'status': 'Invalid Role!!'}, status = status.HTTP_400_BAD_REQUEST)
+            return Response({'status':'Invalid Role!!'}, status = status.HTTP_400_BAD_REQUEST)

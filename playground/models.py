@@ -16,7 +16,7 @@ class Roles(models.TextChoices):
 # Defining the CustomUser class which is an extension of the AbstractUser class 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique= True ,max_length = 100)
-    name = models.CharField(max_length = 50, default = 'NULL')
+    name = models.CharField(max_length = 50, blank = False)
     role = models.CharField(
         choices = Roles.choices,
         default = Roles.END_USER

@@ -25,3 +25,4 @@ EXPOSE 8000
 
 # Entrypoint script
 ENTRYPOINT ["./entrypoint.sh"]
+

@@ -86,9 +86,19 @@ REST_FRAMEWORK = {
 AUTH_USER_MODEL = "MLAAS.CustomUser"
 
 SIMPLE_JWT ={
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    ## Access Token Lifetime ( 1 Hour )
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours = 1),
+    ## Refresh Token Lifetime ( 12 Hour )
+    'REFRESH_TOKEN_LIFETIME': timedelta(hours = 12),
+    ## Using Bearer Token 
     'AUTH_HEADER_TYPES' : ('Bearer')
+}
+
+DJOSER = {
+    'TOKEN_MODEL': None, 
+    'SERIALIZERS': {
+         'user_create': 'MLAAS.serializers.UserCreateSerializer',
+    },
 }
 
 WSGI_APPLICATION = 'main.wsgi.application'

@@ -1,6 +1,9 @@
 services:
   api:
-    image: desd-example:1.0
+    image: desd:1.3
+    command:
+      - python manage.py makemigrations
+      - python manage.py migrate 
     build:
       context: ./
       dockerfile: Dockerfile
@@ -24,8 +27,8 @@ services:
       - "5432:5432"
     restart: unless-stopped
     volumes:
-      - desd-example:/var/lib/postgresql/data
-
+      - desd:/var/lib/postgresql/data
+    
 volumes:
-  desd-example:
+  desd:
   

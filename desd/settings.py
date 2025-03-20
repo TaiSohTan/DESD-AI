@@ -79,6 +79,7 @@ WSGI_APPLICATION = 'desd.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+## Postgres Database Configuration 
 DATABASES = {
     "default": {
         'ENGINE': 'django.db.backends.postgresql',
@@ -90,8 +91,14 @@ DATABASES = {
     }
 }
 
+## Stripe API Public and Private Keys 
+STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLISHED_KEY')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
+
 AUTH_USER_MODEL = 'api.User'
 
+## Rest Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -101,12 +108,14 @@ REST_FRAMEWORK = {
     ],
 }
 
+## Simple JWT Bearer Token Configuration 
 SIMPLE_JWT ={
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES' : ('Bearer')
 }
 
+# Djoser Configuration for User Creation 
 DJOSER = {
     # Since we're using JWT, we don't need Djoser's token model.
     'TOKEN_MODEL': None, 

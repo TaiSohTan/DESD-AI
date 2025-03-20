@@ -16,10 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
+from api.views import payment_success,payment_cancel
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
+    path('payment-success/',payment_success,name='payment_success'),
+    path('payment-failed/',payment_cancel,name='payment_cancel')
 ]

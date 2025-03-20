@@ -18,14 +18,14 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, name, password=None):
         return self.create_user(email, name, password, role='Admin')
     
-# Role Choices
+# Role Choices 
 class Role(models.TextChoices):
     END_USER = "EndUser", "End User"
     ADMIN = "Admin", "Admin"
     AI_ENGINEER = "AI Engineer", "AI Engineer"
     FINANCE_TEAM = "FinanceTeam", "Finance Team"
 
-# User Model
+# User Model (All Users)
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=255)
@@ -49,3 +49,17 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+## Invoices Model (FinanceTeam)
+class Invoice(models.Model):
+    ## Create a Foriegn Key to User Model
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    issued_date = models.DateTimeField(auto_now_add=True)
+    due_date = models.DateTimeField()
+    status = models.CharField(max_length=50, choices=[('Pending', 'Pending'), ('Paid', 'Paid')])
+    stripe_payment_intent_id = models.CharField(max_length=255, blank=True, null=True)
+    payment_url = models.CharField(max_length=500, blank=True, null=True)
+
+    def __str__(self):
+        return f"Invoice {self.id} for {self.user.email}"

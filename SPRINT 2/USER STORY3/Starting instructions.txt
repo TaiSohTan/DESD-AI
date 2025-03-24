@@ -1,5 +1,0 @@
-1.Please first enter in the terminal: uvicorn main:app --reload
-
-2.After startup, enter the URL to see if you can enter: http://127.0.0.1:8000/docs#/default/upload_claim_upload_claim_post
-
-3.The website can be viewed, indicating that the successful startup, you can carry out online file transfer work.

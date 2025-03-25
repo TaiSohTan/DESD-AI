@@ -1,0 +1,69 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}MLAAS - Our Services{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="my-4">Our Services</h1>
+    <p class="lead">We provide cutting-edge machine learning solutions for insurance settlement predictions.</p>
+    
+    <div class="row mt-5">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Insurance Settlement Prediction</h5>
+                    <p class="card-text">Our core service uses machine learning to predict insurance settlement values based on various factors including accident type, location, and injury severity.</p>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">Accuracy up to 95%</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Insurance Data Analysis</h5>
+                    <p class="card-text">We analyze historical insurance data to identify patterns and trends that can help insurance companies improve their settlement processes.</p>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">Comprehensive reports</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">API Integration</h5>
+                    <p class="card-text">Our machine learning models are available through a simple API that can be integrated into your existing insurance management systems.</p>
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted">Easy implementation</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-5">
+        <div class="col-md-6">
+            <h3>How It Works</h3>
+            <ol class="list-group list-group-numbered mt-3">
+                <li class="list-group-item">Input your insurance claim data</li>
+                <li class="list-group-item">Our ML models process the information</li>
+                <li class="list-group-item">Receive accurate settlement predictions</li>
+                <li class="list-group-item">Use insights to make informed decisions</li>
+            </ol>
+        </div>
+        <div class="col-md-6">
+            <h3>Benefits</h3>
+            <ul class="list-group mt-3">
+                <li class="list-group-item">Faster claim processing</li>
+                <li class="list-group-item">More accurate settlement estimates</li>
+                <li class="list-group-item">Reduced operational costs</li>
+                <li class="list-group-item">Better customer satisfaction</li>
+                <li class="list-group-item">Data-driven decision making</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

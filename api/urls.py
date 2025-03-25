@@ -1,4 +1,5 @@
 from django.urls import path, include
+from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from .viewsets import UserViewSet, InvoiceViewSet
 from .views import download_invoice_pdf, create_payment_session, verify_payment_status,stripe_webhook,payment_success,payment_cancel

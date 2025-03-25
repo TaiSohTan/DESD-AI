@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settlement Prediction Form</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 40px 0;
+            background-color: #f8f9fa;
+        }
+        .form-container {
+            max-width: 60%;
+            min-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2471a3;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 45px;        /* Add this line to increase font size */
+            font-weight: bold;      /* Add this line to make it bold */
+            text-transform: uppercase; /* Optional: make it all uppercase */
+            letter-spacing: 1px;    /* Optional: add letter spacing for emphasis */
+        }
+        h3 {
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .btn-primary {
+            background-color: #2471a3;
+            border-color: #2471a3;
+        }
+        .btn-primary:hover {
+            background-color: #1a5276;
+            border-color: #1a5276;
+        }
+        .result-container {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #e8f4f8;
+            display: none;
+        }
+        .section-header {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin: 20px 0 15px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container form-container">
+        <h1>Settlement Prediction Form</h1>
+        <form id="predictionForm">
+
+            <!-- Person Information -->
+            <div class="section-header">Person Information</div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="fullName">Full Name:</label>
+                        <input type="text" class="form-control" id="fullName" name="fullName" value="Peter Parker" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="insuranceID">Insurance ID:</label>
+                        <input type="text" class="form-control" id="insuranceID" name="insuranceID" value="INS-12345678" required>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Driver_Age">Driver Age (years):</label>
+                        <input type="number" class="form-control" id="Driver_Age" name="Driver_Age" min="16" value="35" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Gender">Gender:</label>
+                        <select class="form-control" id="Gender" name="Gender" required>
+                            <option value="">Select...</option>
+                            <option value="Male" selected>Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Accident Information -->
+            <div class="section-header">Accident Information</div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="AccidentType">Accident Type:</label>
+                        <select class="form-control" id="AccidentType" name="AccidentType" required>
+                            <option value="">Select...</option>
+                            <option value="Rear end" selected>Rear end</option>
+                            <option value="Other side pulled out of side road">Other side pulled out of side road</option>
+                            <option value="Other">Other</option>
+                            <option value="Other side turned across Clt's path">Other side turned across Clt's path</option>
+                            <option value="Rear end - Clt pushed into next vehicle">Rear end - Clt pushed into next vehicle</option>
+                            <option value="Other side changed lanes and collided with clt's vehicle">Other side changed lanes and collided</option>
+                            <option value="Rear end - 3 car - Clt at front">Rear end - 3 car - Clt at front</option>
+                            <option value="Other side reversed into Clt's vehicle">Other side reversed into Clt's vehicle</option>
+                            <option value="Other side drove on wrong side of the road">Other side drove on wrong side of the road</option>
+                            <option value="Other side changed lanes on a roundabout colliding with clt's vehicle">Other side changed lanes on a roundabout</option>
+                            <option value="Other side pulled on to roundabout">Other side pulled on to roundabout</option>
+                            <option value="Other side reversed into clt's stationary vehicle">Other side reversed into stationary vehicle</option>
+                            <option value="Other side pulled from parked position into the path of clt's vehicle">Other side pulled from parked position</option>
+                            <option value="Other side collided with Clt's parked vehicle">Other side collided with parked vehicle</option>
+                            <option value="Other side overtook and hit Clt when pulling in">Other side overtook and hit when pulling in</option>
+                            <option value="Other side opened their door, hitting clt's vehicle">Other side opened door, hitting vehicle</option>
+                            <option value="Other side overtook and pulled in too soon">Other side overtook and pulled in too soon</option>
+                            <option value="Other side overtook whilst clt was turning right">Other side overtook during right turn</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Accident_Description">Accident Description:</label>
+                        <select class="form-control" id="Accident_Description" name="Accident_Description" required>
+                            <option value="">Select...</option>
+                            <option value="Hit a deer on the highway.">Hit a deer on the highway</option>
+                            <option value="Rear-ended at a stoplight." selected>Rear-ended at a stoplight</option>
+                            <option value="Lost control on a snowy road.">Lost control on a snowy road</option>
+                            <option value="Side collision at an intersection.">Side collision at an intersection</option>
+                            <option value="Swerved to avoid another vehicle.">Swerved to avoid another vehicle</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Days_Between_Accident_And_Claim">Days Between Accident And Claim:</label>
+                        <input type="number" class="form-control" id="Days_Between_Accident_And_Claim" name="Days_Between_Accident_And_Claim" min="0" value="30" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Weather_Conditions">Weather Conditions:</label>
+                        <select class="form-control" id="Weather_Conditions" name="Weather_Conditions" required>
+                            <option value="">Select...</option>
+                            <option value="Rainy" selected>Rainy</option>
+                            <option value="Sunny">Sunny</option>
+                            <option value="Snowy">Snowy</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Police_Report_Filed">Police Report Filed:</label>
+                        <select class="form-control" id="Police_Report_Filed" name="Police_Report_Filed" required>
+                            <option value="true" selected>Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Witness_Present">Witness Present:</label>
+                        <select class="form-control" id="Witness_Present" name="Witness_Present" required>
+                            <option value="true">Yes</option>
+                            <option value="false" selected>No</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Exceptional_Circumstances">Exceptional Circumstances:</label>
+                        <select class="form-control" id="Exceptional_Circumstances" name="Exceptional_Circumstances" required>
+                            <option value="true">Yes</option>
+                            <option value="false" selected>No</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Vehicle Information -->
+            <div class="section-header">Vehicle Information</div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Vehicle_Type">Vehicle Type:</label>
+                        <select class="form-control" id="Vehicle_Type" name="Vehicle_Type" required>
+                            <option value="">Select...</option>
+                            <option value="Car" selected>Car</option>
+                            <option value="Truck">Truck</option>
+                            <option value="Motorcycle">Motorcycle</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Vehicle_Age">Vehicle Age (years):</label>
+                        <input type="number" class="form-control" id="Vehicle_Age" name="Vehicle_Age" min="0" step="0.1" value="5.0" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Number_of_Passengers">Number of Passengers:</label>
+                        <input type="number" class="form-control" id="Number_of_Passengers" name="Number_of_Passengers" min="0" value="2" required>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Injury Information -->
+            <div class="section-header">Injury Information</div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Injury_Description">Injury Description:</label>
+                        <select class="form-control" id="Injury_Description" name="Injury_Description" required>
+                            <option value="">Select...</option>
+                            <option value="Fractured arm and leg.">Fractured arm and leg</option>
+                            <option value="Concussion and bruised ribs.">Concussion and bruised ribs</option>
+                            <option value="Sprained ankle and wrist.">Sprained ankle and wrist</option>
+                            <option value="Minor cuts and scrapes.">Minor cuts and scrapes</option>
+                            <option value="Whiplash and minor bruises." selected>Whiplash and minor bruises</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="Injury_Prognosis">Injury Prognosis (months):</label>
+                        <input type="number" class="form-control" id="Injury_Prognosis" name="Injury_Prognosis" min="0" step="0.1" value="6.0" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Dominant_injury">Dominant Injury Area:</label>
+                        <select class="form-control" id="Dominant_injury" name="Dominant_injury" required>
+                            <option value="">Select...</option>
+                            <option value="Legs">Legs</option>
+                            <option value="Multiple">Multiple</option>
+                            <option value="Hips">Hips</option>
+                            <option value="Arms" selected>Arms</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Whiplash">Whiplash:</label>
+                        <select class="form-control" id="Whiplash" name="Whiplash" required>
+                            <option value="true" selected>Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="Minor_Psychological_Injury">Minor Psychological Injury:</label>
+                        <select class="form-control" id="Minor_Psychological_Injury" name="Minor_Psychological_Injury" required>
+                            <option value="true" selected>Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Financial Information -->
+            <div class="section-header">Financial Information</div>
+            
+            <!-- General Damages -->
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="GeneralRest">General Rest:</label>
+                        <input type="number" class="form-control" id="GeneralRest" name="GeneralRest" min="0" step="0.01" value="1000.00" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="GeneralFixed">General Fixed:</label>
+                        <input type="number" class="form-control" id="GeneralFixed" name="GeneralFixed" min="0" step="0.01" value="500.00" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="GeneralUplift">General Uplift:</label>
+                        <input type="number" class="form-control" id="GeneralUplift" name="GeneralUplift" min="0" step="0.01" value="100.00" required>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Special Damages - Health -->
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="SpecialHealthExpenses">Health Expenses:</label>
+                        <input type="number" class="form-control" id="SpecialHealthExpenses" name="SpecialHealthExpenses" min="0" step="0.01" value="250.00" required>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="SpecialTherapy">Therapy Costs:</label>
+                        <input type="number" class="form-control" id="SpecialTherapy" name="SpecialTherapy" min="0" step="0.01" value="150.00" required>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="SpecialMedications">Medications:</label>
+                        <input type="number" class="form-control" id="SpecialMedications" name="SpecialMedications" min="0" step="0.01" value="120.00" required>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="SpecialRehabilitation">Rehabilitation:</label>
+                        <input type="number" class="form-control" id="SpecialRehabilitation" name="SpecialRehabilitation" min="0" step="0.01" value="300.00" required>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Special Damages - Economic -->
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="SpecialEarningsLoss">Earnings Loss:</label>
+                        <input type="number" class="form-control" id="SpecialEarningsLoss" name="SpecialEarningsLoss" min="0" step="0.01" value="200.00" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="SpecialUsageLoss">Usage Loss:</label>
+                        <input type="number" class="form-control" id="SpecialUsageLoss" name="SpecialUsageLoss" min="0" step="0.01" value="50.00" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="SpecialAdditionalInjury">Additional Injury:</label>
+                        <input type="number" class="form-control" id="SpecialAdditionalInjury" name="SpecialAdditionalInjury" min="0" step="0.01" value="150.00" required>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Special Damages - Property -->
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="SpecialAssetDamage">Asset Damage:</label>
+                        <input type="number" class="form-control" id="SpecialAssetDamage" name="SpecialAssetDamage" min="0" step="0.01" value="300.00" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="SpecialFixes">Fixes:</label>
+                        <input type="number" class="form-control" id="SpecialFixes" name="SpecialFixes" min="0" step="0.01" value="450.00" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="SpecialOverage">Overage:</label>
+                        <input type="number" class="form-control" id="SpecialOverage" name="SpecialOverage" min="0" step="0.01" value="0.00" required>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Special Damages - Transportation -->
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="SpecialJourneyExpenses">Journey Expenses:</label>
+                        <input type="number" class="form-control" id="SpecialJourneyExpenses" name="SpecialJourneyExpenses" min="0" step="0.01" value="75.00" required>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="SpecialLoanerVehicle">Loaner Vehicle:</label>
+                        <input type="number" class="form-control" id="SpecialLoanerVehicle" name="SpecialLoanerVehicle" min="0" step="0.01" value="0.00" required>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="SpecialTripCosts">Trip Costs:</label>
+                        <input type="number" class="form-control" id="SpecialTripCosts" name="SpecialTripCosts" min="0" step="0.01" value="80.00" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-primary btn-lg">Get Prediction</button>
+            </div>
+        </form>
+        
+        <div class="result-container" id="resultContainer">
+            <h3>Predicted Settlement Value:</h3>
+            <h2 id="predictionResult" class="text-center text-primary"></h2>
+            <h3>Confidence:</h3>
+            <h2 class="text-center">
+                <span id="confidenceScore" class="badge rounded-pill"></span>
+            </h2>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('predictionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const formObject = {};
+
+            // Fields to exclude from prediction
+            const excludeFields = ['fullName', 'insuranceID'];
+            
+            formData.forEach((value, key) => {
+                // Skip excluded fields
+                if (excludeFields.includes(key)) {
+                    return;
+                }
+                // Convert string boolean values to actual booleans
+                if (value === 'true') {
+                    formObject[key] = true;
+                } else if (value === 'false') {
+                    formObject[key] = false;
+                } else if (!isNaN(value) && value !== '') {
+                    // Convert numeric strings to numbers
+                    formObject[key] = Number(value);
+                } else {
+                    formObject[key] = value;
+                }
+            });
+            
+            try {
+
+                // Show loading state
+                document.getElementById('predictionResult').textContent = "Calculating...";
+                document.getElementById('resultContainer').style.display = 'block';
+
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formObject),
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Prediction request failed');
+                }
+                
+                const data = await response.json();
+                // Display Prediction Result
+                document.getElementById('predictionResult').textContent = data.message;
+
+                // Display confidence score with proper styling
+                const confidenceEl = document.getElementById('confidenceScore');
+                confidenceEl.textContent = data.confidence || "N/A";
+
+                // Set color based on confidence percentage
+                const confidenceValue = parseFloat(data.confidence);
+                confidenceEl.classList.remove('bg-info', 'bg-success', 'bg-primary', 'bg-warning', 'bg-danger');
+                
+                if (confidenceValue >= 80) {
+                    confidenceEl.classList.add('bg-success');
+                } else if (confidenceValue >= 65) {
+                    confidenceEl.classList.add('bg-primary');
+                } else if (confidenceValue >= 50) {
+                    confidenceEl.classList.add('bg-info');
+                } else if (confidenceValue >= 35) {
+                    confidenceEl.classList.add('bg-warning');
+                } else {
+                    confidenceEl.classList.add('bg-danger');
+                }
+
+                document.getElementById('resultContainer').style.display = 'block';
+                
+                // Scroll to result
+                document.getElementById('resultContainer').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while making the prediction. Please try again.');
+            }
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

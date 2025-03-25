@@ -47,8 +47,7 @@ def create_checkout(Invoice, domain_urls):
         metadata={'invoice_id' : Invoice.id },
         mode='payment',
         success_url = domain_urls + f'/payment-success?session_id={{CHECKOUT_SESSION_ID}}&invoice_id={Invoice.id}',
-        cancel_url = domain_urls + f'/payment-cancelled?invoice_id={Invoice.id}',
-        )
+        cancel_url = domain_urls + f'/payment-cancel?invoice_id={Invoice.id}', )
         return checkout_session
     except Exception as Exp:
         print(f"Error Occured When Trying to Create Checkout Session: str{Exp}")

@@ -5,7 +5,7 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 
 # User Manager
 class UserManager(BaseUserManager):
-    def create_user(self, email, name, password=None, role='EndUser'):
+    def create_user(self, email, name, password=None, role='End User'):
         ## Email cannot be an empty field as it is an unique identifier
         if not email:
             raise ValueError("Users must have an email address")
@@ -20,10 +20,10 @@ class UserManager(BaseUserManager):
     
 # Role Choices 
 class Role(models.TextChoices):
-    END_USER = "EndUser", "End User"
+    END_USER = "End User", "End User"
     ADMIN = "Admin", "Admin"
     AI_ENGINEER = "AI Engineer", "AI Engineer"
-    FINANCE_TEAM = "FinanceTeam", "Finance Team"
+    FINANCE_TEAM = "Finance Team", "Finance Team"
 
 # User Model (All Users)
 class User(AbstractBaseUser, PermissionsMixin):

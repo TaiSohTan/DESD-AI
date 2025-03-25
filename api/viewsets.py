@@ -37,7 +37,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['view', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
-            return [IsFinanceTeam() or IsAdminUser()]
+            return [IsFinanceTeam or IsAdminUser]
         return super().get_permissions()
     
     def perform_create(self, serializer):

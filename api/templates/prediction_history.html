@@ -1,0 +1,86 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}MLAAS - Prediction History{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="text-primary">Prediction History</h1>
+            <p class="lead">View your past settlement predictions and their status.</p>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if predictions %}
+    <div class="card">
+        <div class="card-header bg-light">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5 class="mb-0">Date</h5>
+                </div>
+                <div class="col-md-2">
+                    <h5 class="mb-0">Settlement</h5>
+                </div>
+                <div class="col-md-2">
+                    <h5 class="mb-0">Status</h5>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+            </div>
+        </div>
+        <ul class="list-group list-group-flush">
+            {% for prediction in predictions %}
+            <li class="list-group-item">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        {{ prediction.timestamp|date:"F j, Y, g:i a" }}
+                    </div>
+                    <div class="col-md-2">
+                        ${{ prediction.settlement_value|floatformat:2 }}
+                    </div>
+                    <div class="col-md-2">
+                        {% if prediction.needs_review %}
+                            <span class="badge bg-warning text-dark">Needs Review</span>
+                        {% elif prediction.is_reasonable == True %}
+                            <span class="badge bg-success">Accepted</span>
+                        {% elif prediction.is_reasonable == False %}
+                            <span class="badge bg-danger">Disputed</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Pending Feedback</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{% url 'prediction_detail' prediction.id %}" class="btn btn-sm btn-primary">View Details</a>
+                        
+                        {% if prediction.is_reasonable == None %}
+                        <a href="{% url 'prediction_feedback' prediction.id %}" class="btn btn-sm btn-outline-primary">Provide Feedback</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <p class="mb-0">You haven't made any predictions yet.</p>
+    </div>
+    <div class="text-center mt-4">
+        <a href="{% url 'prediction_form' %}" class="btn btn-primary btn-lg">Make Your First Prediction</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

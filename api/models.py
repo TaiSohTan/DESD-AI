@@ -63,3 +63,23 @@ class Invoice(models.Model):
 
     def __str__(self):
         return f"Invoice {self.id} for {self.user.email}"
+
+class Prediction(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='predictions')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    input_data = models.JSONField()
+    result = models.JSONField()
+    settlement_value = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Feedback fields
+    is_reasonable = models.BooleanField(null=True, default=None)
+    proposed_settlement = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    adjustment_rationale = models.TextField(null=True, blank=True)
+    needs_review = models.BooleanField(default=False)
+    feedback_date = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"Prediction for {self.user.name}: ${self.settlement_value}"

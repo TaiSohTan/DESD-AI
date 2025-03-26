@@ -21,6 +21,7 @@ from api.views import payment_success,payment_cancel
 from api.views import home,about,services,pricing,contact
 from api.views import login_view,register_view,logout_view,password_reset,refresh_token_view,dashboard
 from api.views import user_management,add_user,edit_user,change_user_role,delete_user
+from api.views import prediction_form,submit_prediction_feedback,prediction_history,prediction_detail,prediction_feedback
 from django.conf.urls.static import static
 
 
@@ -53,6 +54,12 @@ urlpatterns = [
     path('user-management/edit/<int:user_id>/', edit_user, name='edit_user'),
     path('user-management/change-role/<int:user_id>/', change_user_role, name='change_user_role'),
     path('user-management/delete/<int:user_id>/', delete_user, name='delete_user'),
+    ## Prediction and Feedback URLs
+    path('predict/', prediction_form, name='prediction_form'),
+    path('predict/feedback/', submit_prediction_feedback, name='submit_prediction_feedback'),
+    path('predict/history/', prediction_history, name='prediction_history'),
+    path('predict/detail/<int:prediction_id>/', prediction_detail, name='prediction_detail'),
+    path('predict/feedback/<int:prediction_id>/', prediction_feedback, name='prediction_feedback'),
 ]
 
 if settings.DEBUG:

@@ -171,9 +171,15 @@ def calculate_confidence_percentage(model_input, model_type):
     # Return as percentage string
     return f"{adjusted_confidence:.1f}%"
 
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    return FileResponse("static/welcomepage.html")
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for the API."""
+    try:
+        # Try to load one of the models to ensure everything is working
+        gbr_model
+        return {"status": "healthy"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Service unhealthy: {str(e)}")
 
 # Endpoint for predictions
 @app.post("/predict", response_model=PredictionResponse)
@@ -239,7 +245,6 @@ async def predict_settlement(
             message=f"£ {rounded_settlement_value:,.2f}",
             confidence=confidence_score
         )   
-        ### return PredictionResponse(settlement_value = round(float(prediction), 2))
     
     except Exception as e:
         # Log the error
@@ -257,10 +262,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def get_form():
     return FileResponse("static/form.html")
 
-
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8088, reload=True)
 
-
-### uvicorn main:app --reload
-### uvicorn main:app --host 0.0.0.0 --port 8001 --reload

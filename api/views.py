@@ -1,7 +1,7 @@
 from django.shortcuts import render
 # Create your views here.
-from django.http import HttpResponse,response,JsonResponse
-from .models import Invoice,Role
+from django.http import HttpResponse,response,JsonResponse,HttpResponseBadRequest
+from .models import Invoice,Role,Prediction
 from utils.pdf_generator import generate_invoice_pdf
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -17,6 +17,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from utils.ml_api_client import predict, health
 from .models import User
 import re
 logger = logging.getLogger(__name__)
@@ -41,6 +42,189 @@ def pricing(request):
 
 def contact(request):
     return render(request,'contact.html')
+
+@login_required
+def prediction_history(request):
+    """View for user's prediction history"""
+    # Get the user's predictions
+    predictions = Prediction.objects.filter(user=request.user)
+    
+    return render(request, 'prediction_history.html', {
+        'predictions': predictions
+    })
+
+@login_required
+def prediction_detail(request, prediction_id):
+    """View for detailed prediction information"""
+    try:
+        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
+        
+        return render(request, 'prediction_detail.html', {
+            'prediction': prediction,
+            'input_data': prediction.input_data,
+            'result': prediction.result
+        })
+    except Prediction.DoesNotExist:
+        messages.error(request, "Prediction not found or you don't have permission to access it.")
+        return redirect('prediction_history')
+
+@login_required
+def prediction_feedback(request, prediction_id):
+    """View for providing feedback on a prediction"""
+    try:
+        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
+        
+        # Check if feedback has already been provided
+        if prediction.is_reasonable is not None:
+            messages.warning(request, "Feedback has already been provided for this prediction.")
+            return redirect('prediction_detail', prediction_id=prediction.id)
+        
+        if request.method == 'POST':
+            is_reasonable = request.POST.get('is_reasonable') == 'yes'
+            
+            prediction.is_reasonable = is_reasonable
+            prediction.feedback_date = timezone.now()
+            
+            if not is_reasonable:
+                proposed_settlement = request.POST.get('proposed_settlement')
+                adjustment_rationale = request.POST.get('adjustment_rationale')
+                
+                if not proposed_settlement or not adjustment_rationale:
+                    messages.error(request, "Please provide both a proposed settlement value and rationale.")
+                    return render(request, 'prediction/prediction_feedback.html', {'prediction': prediction})
+                
+                prediction.proposed_settlement = float(proposed_settlement)
+                prediction.adjustment_rationale = adjustment_rationale
+                prediction.needs_review = True
+                
+                messages.info(request, "Your feedback has been recorded. This case has been flagged for supervisor review.")
+            else:
+                messages.success(request, "Thank you for confirming the settlement value.")
+            
+            prediction.save()
+            return redirect('prediction_history')
+        
+        return render(request, 'prediction/prediction_feedback.html', {
+            'prediction': prediction,
+            'input_data': prediction.input_data,
+            'result': prediction.result
+        })
+        
+    except Prediction.DoesNotExist:
+        messages.error(request, "Prediction not found or you don't have permission to access it.")
+        return redirect('prediction_history')
+
+@login_required
+def submit_prediction_feedback(request):
+    """Handle submission of feedback on a prediction"""
+    if request.method != 'POST':
+        return HttpResponseBadRequest("Invalid request method")
+    
+    prediction_id = request.POST.get('prediction_id')
+    is_reasonable = request.POST.get('is_reasonable') == 'yes'
+    
+    try:
+        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
+        
+        # Update the prediction with feedback
+        prediction.is_reasonable = is_reasonable
+        prediction.feedback_date = timezone.now()
+        
+        if not is_reasonable:
+            proposed_settlement = request.POST.get('proposed_settlement')
+            adjustment_rationale = request.POST.get('adjustment_rationale')
+            
+            if not proposed_settlement or not adjustment_rationale:
+                messages.error(request, "Please provide both a proposed settlement value and rationale.")
+                return redirect('prediction_result', prediction_id=prediction_id)
+            
+            prediction.proposed_settlement = float(proposed_settlement)
+            prediction.adjustment_rationale = adjustment_rationale
+            prediction.needs_review = True
+            
+            messages.info(request, "Your feedback has been recorded. This case has been flagged for supervisor review.")
+        else:
+            messages.success(request, "Thank you for confirming the settlement value.")
+        
+        prediction.save()
+        
+        # Redirect to prediction history
+        return redirect('prediction_history')
+        
+    except Prediction.DoesNotExist:
+        messages.error(request, "Prediction not found or you don't have permission to access it.")
+        return redirect('dashboard')
+    except ValueError:
+        messages.error(request, "Invalid proposed settlement value.")
+        return redirect('prediction_result', prediction_id=prediction_id)
+    except Exception as e:
+        messages.error(request, f"Error processing feedback: {str(e)}")
+        return redirect('prediction_history')
+
+
+@login_required
+def prediction_form(request):
+    """View for the prediction form"""
+    # Check if ML service is available
+    ml_service_available = health()
+    
+    if request.method == 'POST':
+        # Extract form data and convert to expected format
+        input_data = {}
+        
+        # Process each field in the form - convert strings to appropriate types
+        for key, value in request.POST.items():
+            if key in ['csrfmiddlewaretoken']:
+                continue
+                
+            # Convert boolean fields
+            if value.lower() == 'true':
+                input_data[key] = True
+            elif value.lower() == 'false':
+                input_data[key] = False
+            # Convert numeric fields
+            elif value and value.replace('.', '', 1).isdigit():
+                input_data[key] = float(value)
+            else:
+                input_data[key] = value
+        
+        try:
+            # Make prediction using client
+            prediction_result = predict(input_data)
+            
+            # Get settlement value from the correct key
+            settlement_value = prediction_result.get('settlement_value', 0)
+            
+            # Automatically save the prediction
+            prediction = Prediction(
+                user=request.user,
+                input_data=input_data,
+                result=prediction_result,
+                settlement_value=settlement_value
+            )
+            prediction.save()
+            
+            # Render the result page with the prediction ID
+            return render(request, 'prediction_result.html', {
+                'prediction': prediction_result,
+                'input_data': input_data,
+                'prediction_id': prediction.id
+            })
+            
+        except Exception as e:
+            # Log the error
+            print(f"Prediction error: {str(e)}")
+            
+            # Render the form again with an error message
+            return render(request, 'prediction_form.html', {
+                'error_message': f"Error making prediction: {str(e)}",
+                'ml_service_available': False
+            })
+    
+    # Render the initial form
+    return render(request, 'prediction_form.html', {
+        'ml_service_available': ml_service_available
+    })
 
 # Registration view function
 def register_view(request):

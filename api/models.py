@@ -1,7 +1,25 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 # Create your models here.
-# Creating UserManager class. Required as we set email as the unique identifier for the user
+
+class Claim(models.Model):
+    uploaded_file = models.FileField(upload_to='claims/')
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    predicted_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    confidence_level = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
+    def __str__(self):
+        return f"Claim {self.id}"
+
+class Feedback(models.Model):
+    claim = models.ForeignKey(Claim, on_delete=models.CASCADE, related_name="feedbacks")
+    feedback_text = models.TextField()
+    rating = models.IntegerField()
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Feedback {self.id} for Claim {self.claim.id}"
 
 # User Manager
 class UserManager(BaseUserManager):
@@ -16,7 +34,11 @@ class UserManager(BaseUserManager):
         return user
     
     def create_superuser(self, email, name, password=None):
-        return self.create_user(email, name, password, role='Admin')
+        user = self.create_user(email, name, password, role='Admin')
+        user.is_staff = True
+        user.is_superuser = True
+        user.save(using=self._db)
+        return user
     
 # Role Choices 
 class Role(models.TextChoices):
@@ -35,6 +57,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=Role.END_USER
     )
     member_since = models.DateTimeField(auto_now_add=True)
+
+    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     
     objects = UserManager()
 

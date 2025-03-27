@@ -1,29 +1,37 @@
-from django.shortcuts import render
-# Create your views here.
-from django.http import HttpResponse,response,JsonResponse,HttpResponseBadRequest
+# Python standard library
+import re
+import logging
+import stripe
 from datetime import timedelta
-from .models import Invoice,Role,Prediction
-from utils.pdf_generator import generate_invoice_pdf
+
+# Django Library Imports
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q
+from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+
+# Django Rest Framework (DRF) Imports
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.conf import settings
-from .permissions import IsFinanceTeam,IsAdminUser
-from utils.stripe_payment import  create_checkout, verify_intent
-import stripe
-from django.views.decorators.csrf import csrf_exempt
-import logging 
-from django.utils import timezone
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login, logout
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+
+# Project imports - Models
+from .models import User, Invoice, Role, Prediction
+from .permissions import IsFinanceTeam, IsAdminUser
+
+# Project imports - Utilities
 from utils.ml_api_client import predict, health
-from .models import User
-import re
-from django.db.models import Q 
-from django.core.paginator import Paginator,EmptyPage,PageNotAnInteger
+from utils.pdf_generator import generate_invoice_pdf
+from utils.stripe_payment import create_checkout, verify_intent
+
+# Configure logger
 logger = logging.getLogger(__name__)
 
 ## Rendering the home page
@@ -931,7 +939,7 @@ def finance_invoice_detail(request, invoice_id):
     
     try:
         invoice = Invoice.objects.get(id=invoice_id)
-        return render(request, 'invoice_detail.html', {'invoice': invoice})
+        return render(request, 'invoice_findetail.html', {'invoice': invoice})
         
     except Invoice.DoesNotExist:
         messages.error(request, "Invoice not found.")

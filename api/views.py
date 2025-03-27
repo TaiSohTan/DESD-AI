@@ -131,7 +131,6 @@ def prediction_feedback(request, prediction_id):
             return redirect('prediction_history')
         
         return render(request, 'prediction_feedback.html', {
-        return render(request, 'prediction_feedback.html', {
             'prediction': prediction,
             'input_data': prediction.input_data,
             'result': prediction.result

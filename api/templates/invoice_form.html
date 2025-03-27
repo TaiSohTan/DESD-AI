@@ -1,0 +1,84 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}
+{% if invoice %}Edit Invoice{% else %}Create New Invoice{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{% if invoice %}Edit Invoice #{{ invoice.id }}{% else %}Create New Invoice{% endif %}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'finance_invoice_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Invoices
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Invoice Details</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="user" class="form-label">User</label>
+                    <select name="user" id="user" class="form-select" required>
+                        <option value="">-- Select User --</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if invoice and invoice.user.id == user.id %}selected{% endif %}>
+                            {{ user.email }} ({{ user.name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <input type="text" class="form-control" id="description" name="description" value="{{ invoice.description|default:'MLAAS Service Invoice' }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="amount" class="form-label">Amount (£)</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control" id="amount" name="amount" value="{{ invoice.amount|default:'0.00' }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="due_date" class="form-label">Due Date</label>
+                    <input type="datetime-local" class="form-control" id="due_date" name="due_date" value="{{ invoice.due_date|date:'Y-m-d\TH:i'|default:default_due_date }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="status" class="form-label">Status</label>
+                    <select name="status" id="status" class="form-select" required>
+                        <option value="Pending" {% if invoice and invoice.status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Paid" {% if invoice and invoice.status == 'Paid' %}selected{% endif %}>Paid</option>
+                    </select>
+                </div>
+                
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">
+                        {% if invoice %}Update Invoice{% else %}Create Invoice{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

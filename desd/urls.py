@@ -14,6 +14,9 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+"""
+URL configuration for desd project.
+"""
 from django.contrib import admin
 from django.conf import settings
 from django.urls import path,include
@@ -22,27 +25,14 @@ from api.views import home,about,services,pricing,contact
 from api.views import login_view,register_view,logout_view,password_reset,refresh_token_view,dashboard
 from api.views import user_management,add_user,edit_user,change_user_role,delete_user
 from api.views import prediction_form,submit_prediction_feedback,prediction_history,prediction_detail,prediction_feedback, model_management, set_model_active, delete_model, review_predictions, aiengineer_prediction_detail
+from django.urls import path, include
 from django.conf.urls.static import static
-
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Static Pages
-    path('',home,name='home'),
-    path('about/', about, name='about'),
-    path('services/', services, name='services'),
-    path('pricing/', pricing, name='pricing'),
-    path('contact/', contact, name='contact'),
-    # Authentication URLs
-    path('login/', login_view, name='login'),
-    path('register/', register_view, name='register'),
-    path('logout/', logout_view, name='logout'),
-    path('reset-password/', password_reset, name='password_reset'),
-    path('refresh-token/', refresh_token_view, name='refresh_token'),
-    path('dashboard/', dashboard, name='dashboard'),
-    # API URLs
-    path('api/', include('api.urls')),
-    ## Djoser and JWT Tojen URLs
+    path('', include('api.urls')),  # Include all app URLs
+    
+    # Authentication with Djoser
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
     ## Payment Redirects
@@ -67,6 +57,7 @@ urlpatterns = [
     ## Review Predictions URLs
     path('review-predictions/', review_predictions, name='review_predictions'),
     path('aiengineer-prediction-detail/<int:prediction_id>/', aiengineer_prediction_detail, name='aiengineer_prediction_detail')
+
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,158 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}Invoice #{{ invoice.id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Invoice #{{ invoice.id }}</h1>
+        <div>
+            <a href="{% url 'finance_invoice_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Invoices
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Invoice Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <p><strong>Invoice Number:</strong> {{ invoice.id }}</p>
+                            <p><strong>Issue Date:</strong> {{ invoice.issued_date|date:"F j, Y, g:i a" }}</p>
+                            <p><strong>Due Date:</strong> {{ invoice.due_date|date:"F j, Y, g:i a" }}</p>
+                            <p><strong>Status:</strong> 
+                                {% if invoice.status == 'Paid' %}
+                                <span class="badge bg-success">Paid</span>
+                                {% else %}
+                                <span class="badge bg-warning">Pending</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <h4>Total Amount</h4>
+                            <h2 class="text-primary">£{{ invoice.amount }}</h2>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Billed To</h5>
+                            <p>
+                                {{ invoice.user.name }}<br>
+                                {{ invoice.user.email }}
+                            </p>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <h5>From</h5>
+                            <p>
+                                MLAAS - Machine Learning as a Service<br>
+                                UWE Bristol<br>
+                                Bristol, UK
+                            </p>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5>Description</h5>
+                    <p>{{ invoice.description }}</p>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <div>
+                            <a href="{% url 'finance_invoice_edit' invoice.id %}" class="btn btn-primary">
+                                <i class="bi bi-pencil"></i> Edit Invoice
+                            </a>
+                            <a href="{% url 'download_invoice_pdf' invoice.id %}" class="btn btn-secondary">
+                                <i class="bi bi-file-pdf"></i> Download PDF
+                            </a>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Payment Information</h5>
+                </div>
+                <div class="card-body">
+                    {% if invoice.status == 'Paid' %}
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> Payment completed
+                    </div>
+                    {% if invoice.stripe_payment_intent_id %}
+                    <p><strong>Payment ID:</strong> {{ invoice.stripe_payment_intent_id }}</p>
+                    {% endif %}
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Payment pending
+                    </div>
+                    
+                    {% if invoice.stripe_payment_intent_id %}
+                    <a href="{% url 'finance_invoice_verify_payment' invoice.id %}" class="btn btn-info w-100 mt-2">
+                        <i class="bi bi-arrow-repeat"></i> Verify Payment Status
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete Invoice #{{ invoice.id }} for {{ invoice.user.email }}?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'finance_invoice_delete' invoice.id %}" class="btn btn-danger">Delete</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function copyPaymentUrl() {
+        var copyText = document.getElementById("payment-url");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        alert("Payment link copied to clipboard");
+    }
+</script>
+{% endblock %}

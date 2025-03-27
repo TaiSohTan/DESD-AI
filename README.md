@@ -78,5 +78,7 @@ utils/
 - FastAPI ML Service: Located in the FastAPI directory.
 - Shared Resources: The .env and docker-compose.yaml files configure the entire project.
 
-
+## Test Cards for the Stripe Payment (Dont use real cards)
+Visa Credit : 4242 4242 4242 Exp : Future Data CVV2: Any 3 Digit No. 
+Source Stripe API Documentation
 

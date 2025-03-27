@@ -594,10 +594,16 @@ def user_invoices(request):
 
 @login_required
 def download_invoice_pdf(request, invoice_id):
-    """Allow the logged-in user to download their own invoice as a PDF."""
+    """Allow users to download invoice PDF."""
     try:
-        # Restrict access to the logged-in user's invoices
-        invoice = Invoice.objects.get(id=invoice_id, user=request.user)
+        # Check if the user is finance team, admin, or the invoice owner
+        if request.user.role in [Role.FINANCE_TEAM, Role.ADMIN]:
+            # Finance team and admin can download any invoice
+            invoice = Invoice.objects.get(id=invoice_id)
+        else:
+            # Regular users can only download their own invoices
+            invoice = Invoice.objects.get(id=invoice_id, user=request.user)
+        
         buffer = generate_invoice_pdf(invoice)
 
         response = HttpResponse(buffer, content_type='application/pdf')
@@ -605,7 +611,12 @@ def download_invoice_pdf(request, invoice_id):
         return response
     except Invoice.DoesNotExist:
         messages.error(request, "Invoice not found or you do not have permission to access it.")
-        return redirect('user_invoices')
+        
+        # Redirect to the appropriate page based on user role
+        if request.user.role in [Role.FINANCE_TEAM, Role.ADMIN]:
+            return redirect('finance_invoice_list')
+        else:
+            return redirect('user_invoices')
     
 ## Creating a Stripe Payment Session for the Invoices
 @login_required

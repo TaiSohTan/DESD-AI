@@ -113,27 +113,6 @@
                         <i class="bi bi-exclamation-triangle"></i> Payment pending
                     </div>
                     
-                    {% if invoice.payment_url %}
-                    <p>A payment link has been generated for this invoice.</p>
-                    <div class="mb-3">
-                        <label for="payment-url" class="form-label">Payment Link:</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="payment-url" value="{{ invoice.payment_url }}" readonly>
-                            <button class="btn btn-outline-secondary" type="button" onclick="copyPaymentUrl()">
-                                <i class="bi bi-clipboard"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <a href="{{ invoice.payment_url }}" target="_blank" class="btn btn-success w-100 mb-2">
-                        <i class="bi bi-credit-card"></i> Open Payment Page
-                    </a>
-                    {% else %}
-                    <p>No payment link has been generated yet.</p>
-                    <a href="{% url 'finance_invoice_payment_link' invoice.id %}" class="btn btn-primary w-100">
-                        <i class="bi bi-link"></i> Generate Payment Link
-                    </a>
-                    {% endif %}
-                    
                     {% if invoice.stripe_payment_intent_id %}
                     <a href="{% url 'finance_invoice_verify_payment' invoice.id %}" class="btn btn-info w-100 mt-2">
                         <i class="bi bi-arrow-repeat"></i> Verify Payment Status

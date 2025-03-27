@@ -931,7 +931,7 @@ def finance_invoice_detail(request, invoice_id):
     
     try:
         invoice = Invoice.objects.get(id=invoice_id)
-        return render(request, 'finance/invoice_detail.html', {'invoice': invoice})
+        return render(request, 'invoice_detail.html', {'invoice': invoice})
         
     except Invoice.DoesNotExist:
         messages.error(request, "Invoice not found.")

@@ -2,7 +2,7 @@ from django.urls import path, include
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from .viewsets import UserViewSet, InvoiceViewSet
-from .views import verify_payment_status,payment_success,payment_cancel
+from .views import finance_invoice_verify_payment, payment_success_view, payment_cancel_view
 from .views import (
     # Static page views
     home, about, services, pricing, contact,
@@ -41,7 +41,7 @@ api_urlpatterns = [
     path('', include(router.urls)),
     path('invoices/<int:invoice_id>/download/', download_invoice_pdf, name='download_invoice_pdf'),
     path('invoices/<int:invoice_id>/payment-session/', create_payment_session, name='create_payment_session'),
-    path('invoices/<int:invoice_id>/payment-status/', verify_payment_status, name='verify_payment_status'),
+    path('invoices/<int:invoice_id>/payment-status/', finance_invoice_verify_payment, name='verify_payment_status'),
     path('stripe-webhook/', stripe_webhook, name='stripe_webhook'),
     
     path('model-management/', model_management, name='model_management'),

@@ -23,7 +23,11 @@ from .views import (
     finance_invoice_delete, finance_invoice_verify_payment,
     
     # Payment views
-    payment_success_view, payment_cancel_view
+    payment_success_view, payment_cancel_view,
+
+    # AI Engineer Views
+    model_management, set_model_active, delete_model, # functionality to manage ML models
+    review_predictions, aiengineer_prediction_detail # functionality to review prediction histories
 )
 
 # Register the UserViewSet with a router

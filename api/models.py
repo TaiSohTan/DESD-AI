@@ -77,9 +77,31 @@ class Prediction(models.Model):
     adjustment_rationale = models.TextField(null=True, blank=True)
     needs_review = models.BooleanField(default=False)
     feedback_date = models.DateTimeField(null=True, blank=True)
+
+    is_checked = models.BooleanField(default=False)
     
     class Meta:
         ordering = ['-timestamp']
     
     def __str__(self):
         return f"Prediction for {self.user.name}: ${self.settlement_value}"
+    
+## Machine Learning Model
+class MLModel(models.Model):
+    name = models.CharField(max_length=100)
+    file = models.FileField(upload_to='ml_models/')
+    model_type = models.CharField(max_length=50)
+    description = models.TextField(blank=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=False)
+    
+    def __str__(self):
+        status = "Active" if self.is_active else "Inactive"
+        return f"{self.name} ({self.model_type}) - {status}"
+    
+    def save(self, *args, **kwargs):
+        # If this model is being set as active, deactivate ALL other models
+        if self.is_active:
+            MLModel.objects.filter(is_active=True).exclude(id=self.id).update(is_active=False)
+        super().save(*args, **kwargs)

@@ -1,7 +1,7 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 # Create your views here.
 from django.http import HttpResponse,response,JsonResponse,HttpResponseBadRequest
-from .models import Invoice,Role,Prediction
+from .models import Invoice,Role,Prediction, User, MLModel
 from utils.pdf_generator import generate_invoice_pdf
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -18,9 +18,17 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from utils.ml_api_client import predict, health
-from .models import User
+from django.utils import timezone
 import re
 logger = logging.getLogger(__name__)
+
+# Imports for AIEngineer Functionality
+import os
+import joblib
+import shutil
+from django.contrib import messages
+from datetime import datetime, timedelta
+from django.core.paginator import Paginator
 
 ## Rendering the home page
 def home(request):
@@ -84,7 +92,7 @@ def prediction_feedback(request, prediction_id):
             
             prediction.is_reasonable = is_reasonable
             prediction.feedback_date = timezone.now()
-            
+
             if not is_reasonable:
                 proposed_settlement = request.POST.get('proposed_settlement')
                 adjustment_rationale = request.POST.get('adjustment_rationale')
@@ -104,7 +112,7 @@ def prediction_feedback(request, prediction_id):
             prediction.save()
             return redirect('prediction_history')
         
-        return render(request, 'prediction/prediction_feedback.html', {
+        return render(request, 'prediction_feedback.html', {
             'prediction': prediction,
             'input_data': prediction.input_data,
             'result': prediction.result
@@ -740,3 +748,310 @@ def refresh_token_view(request):
         return response
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=401)
+    
+## View for ML Model Management (AI ENGINEERS)
+@login_required
+def model_management(request):
+    """View for AI Engineers to manage ML models"""
+    # Check if user is AI Engineer
+    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
+        messages.error(request, "Access denied. AI Engineer privileges required.")
+        return redirect('dashboard')
+    
+    # Handle form submission for model upload
+    if request.method == 'POST':
+        model_file = request.FILES.get('model_file')
+        model_name = request.POST.get('model_name')
+        model_type = request.POST.get('model_type')
+        description = request.POST.get('description', '')
+        set_active = request.POST.get('set_active') == 'on'
+        
+        # Validate required fields
+        if not all([model_file, model_name, model_type]):
+            messages.error(request, "Please provide all required fields: model file, name, and type.")
+            return redirect('model_management')
+        
+        # Validate file is .pkl
+        if not model_file.name.endswith('.pkl'):
+            messages.error(request, "Only .pkl files are allowed.")
+            return redirect('model_management')
+        
+        # Save model with provided info
+        model = MLModel(
+            name=model_name,
+            model_type=model_type,
+            description=description,
+            file=model_file,
+            uploaded_by=request.user,
+            is_active=set_active
+        )
+        model.save()
+        
+        # If set as active, copy to FastAPI directory
+        if set_active:
+            try:
+                # Generate destination filename
+                dest_filename = f"active_model.pkl"
+                
+                # Get source path
+                src_path = model.file.path
+                
+                # Define FastAPI directory path
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                fastapi_dir = os.path.join(base_dir, 'fastapi')
+                
+                # Create the directory if it doesn't exist
+                if not os.path.exists(fastapi_dir):
+                    os.makedirs(fastapi_dir)
+                
+                # Set destination path
+                dest_path = os.path.join(fastapi_dir, dest_filename)
+                
+                # Copy the file
+                shutil.copy2(src_path, dest_path)
+                
+                messages.success(request, f"Model '{model_name}' uploaded and set as active. FastAPI service will use this model for predictions.")
+            except Exception as e:
+                messages.warning(request, f"Model uploaded but failed to copy to FastAPI directory: {str(e)}")
+        else:
+            messages.success(request, f"Model '{model_name}' uploaded successfully.")
+        
+        return redirect('model_management')
+    
+    # Get all models grouped by type
+    models = MLModel.objects.all().order_by('-uploaded_at')
+    active_model = models.filter(is_active=True).first()
+
+    # Check file existence for each model in both possible locations
+    for model in models:
+        try:
+            # Path from Django model
+            django_path = model.file.path
+            
+            # Alternative path in FastAPI directory
+            filename = os.path.basename(model.file.name)
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            fastapi_media_path = os.path.join(base_dir, 'FastAPI', 'media', 'ml_models', filename)
+            
+            # Check both possible locations
+            if os.path.exists(django_path) or os.path.exists(fastapi_media_path):
+                model.file_exists = True
+                # Debug print to see which path exists
+                if os.path.exists(django_path):
+                    print(f"File found in Django path: {django_path}")
+                if os.path.exists(fastapi_media_path):
+                    print(f"File found in FastAPI path: {fastapi_media_path}")
+            else:
+                model.file_exists = False
+                print(f"File not found in either location:")
+                print(f"Django path (checked): {django_path}")
+                print(f"FastAPI path (checked): {fastapi_media_path}")
+        except Exception as e:
+            print(f"Error checking file existence: {str(e)}")
+            model.file_exists = False
+    
+    return render(request, 'model_management.html', {
+        'models': models,
+        'active_model': active_model
+    })
+
+# Function to set a model as active
+@login_required
+def set_model_active(request, model_id):
+    """AJAX view to set a model as active"""
+    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
+        return JsonResponse({"success": False, "error": "Permission denied"})
+    
+    try:
+        # Get the model to activate
+        model = MLModel.objects.get(id=model_id)
+        
+        # Deactivate all other models (this is handled in the save method)
+        model.is_active = True
+        model.save()
+        
+        # Copy model file to FastAPI directory with a generic name
+        try:
+            dest_filename = f"active_model.pkl"
+            
+            # Get source path
+            src_path = model.file.path
+            
+            # Define FastAPI directory path
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            fastapi_dir = os.path.join(base_dir, 'FastAPI')
+            
+            # Create the directory if it doesn't exist
+            if not os.path.exists(fastapi_dir):
+                os.makedirs(fastapi_dir)
+            
+            # Set destination path
+            dest_path = os.path.join(fastapi_dir, dest_filename)
+            
+            # Copy the file
+            shutil.copy2(src_path, dest_path)
+            
+            return JsonResponse({
+                "success": True, 
+                "message": f"Model {model.name} is now active for all predictions"
+            })
+        except Exception as e:
+            return JsonResponse({
+                "success": False, 
+                "error": f"Failed to copy model file: {str(e)}"
+            })
+        
+    except MLModel.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Model not found"})
+    except Exception as e:
+        error_msg = f"General error: {str(e)}, type: {type(e).__name__}"
+        print(error_msg)
+        return JsonResponse({"success": False, "error": str(e)})
+    
+# Function to delete an uploaded ml model
+@login_required
+def delete_model(request, model_id):
+    """AJAX view to delete a model"""
+    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
+        return JsonResponse({"success": False, "error": "Permission denied"})
+    
+    if request.method != 'POST':
+        return JsonResponse({"success": False, "error": "Invalid request method"})
+    
+    try:
+        # Get the model to delete
+        model = MLModel.objects.get(id=model_id)
+        
+        # Don't allow deleting active models
+        if model.is_active:
+            return JsonResponse({
+                "success": False, 
+                "error": "Cannot delete an active model. Make another model active first."
+            })
+        
+        # Get the file path before deleting the model
+        file_path = model.file.path
+        
+        # Store name for the response message
+        model_name = model.name
+        
+        # Delete the model from the database
+        model.delete()
+        
+        # Remove the file from the filesystem if it exists
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"File deleted: {file_path}")
+            else:
+                print(f"File not found: {file_path}")
+        except Exception as file_error:
+            print(f"Error deleting file: {str(file_error)}")
+            # We still return success since the DB record was deleted
+            return JsonResponse({
+                "success": True, 
+                "message": f"Model {model_name} was deleted from database but the file could not be removed: {str(file_error)}"
+            })
+        
+        return JsonResponse({
+            "success": True, 
+            "message": f"Model {model_name} deleted successfully"
+        })
+        
+    except MLModel.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Model not found"})
+    except Exception as e:
+        error_msg = f"Error deleting model: {str(e)}"
+        print(error_msg)
+        return JsonResponse({"success": False, "error": error_msg})
+
+# View for AI Engineers to review all user prediction history
+@login_required
+def review_predictions(request):
+    """View for AI Engineers to review all user predictions"""
+    # Check if user is AI Engineer or Admin
+    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
+        messages.error(request, "Access denied. AI Engineer privileges required.")
+        return redirect('dashboard')
+    
+    # Handle marking prediction as checked
+    if request.method == 'POST' and 'prediction_id' in request.POST:
+        prediction_id = request.POST.get('prediction_id')
+        try:
+            prediction = Prediction.objects.get(id=prediction_id)
+            
+            # Toggle the checked status
+            prediction.is_checked = not prediction.is_checked
+            
+            # If we're checking it, also clear the needs_review flag
+            if prediction.is_checked and prediction.needs_review:
+                prediction.needs_review = False
+                
+            prediction.save()
+            
+            if prediction.is_checked:
+                messages.success(request, f"Prediction #{prediction_id} marked as checked.")
+            else:
+                messages.info(request, f"Prediction #{prediction_id} unmarked.")
+            
+            return redirect('review_predictions')
+        except Prediction.DoesNotExist:
+            messages.error(request, "Prediction not found.")
+    
+    # Get filter parameters
+    status_filter = request.GET.get('status', '')
+    
+    # Get all predictions, ordered by newest first
+    predictions = Prediction.objects.all().select_related('user').order_by('-timestamp')
+    
+    # Apply filters
+    if status_filter == 'checked':
+        predictions = predictions.filter(is_checked=True)
+    elif status_filter == 'unchecked':
+        predictions = predictions.filter(is_checked=False)
+    elif status_filter == 'disputed':
+        predictions = predictions.filter(is_reasonable=False)
+    
+    # Pagination
+    paginator = Paginator(predictions, 20)  # Show 20 predictions per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'review_predictions.html', {
+        'page_obj': page_obj,
+        'total_predictions': predictions.count(),
+        'checked_count': predictions.filter(is_checked=True).count(),
+        'unchecked_count': predictions.filter(is_checked=False).count(),
+        'disputed_count': predictions.filter(is_reasonable=False).count(),
+        'status_filter': status_filter,
+    })
+
+@login_required
+def aiengineer_prediction_detail(request, prediction_id):
+    """View for AI Engineers to see detailed prediction information"""
+    # Check if user is AI Engineer or Admin
+    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
+        messages.error(request, "Access denied. AI Engineer privileges required.")
+        return redirect('dashboard')
+    
+    try:
+        prediction = Prediction.objects.get(id=prediction_id)
+        
+        # Handle marking prediction as checked
+        if request.method == 'POST' and 'mark_checked' in request.POST:
+            prediction.is_checked = True
+            if prediction.needs_review:
+                prediction.needs_review = False
+            prediction.save()
+            messages.success(request, f"Prediction #{prediction_id} marked as checked.")
+            return redirect('aiengineer_prediction_detail', prediction_id=prediction_id)
+        
+        return render(request, 'aiengineer_prediction_detail.html', {
+            'prediction': prediction,
+            'input_data': prediction.input_data,
+            'result': prediction.result,
+            'user': prediction.user  # Pass user info to template
+        })
+    except Prediction.DoesNotExist:
+        messages.error(request, "Prediction not found.")
+        return redirect('review_predictions')

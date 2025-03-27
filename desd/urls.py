@@ -21,7 +21,7 @@ from api.views import payment_success,payment_cancel
 from api.views import home,about,services,pricing,contact
 from api.views import login_view,register_view,logout_view,password_reset,refresh_token_view,dashboard
 from api.views import user_management,add_user,edit_user,change_user_role,delete_user
-from api.views import prediction_form,submit_prediction_feedback,prediction_history,prediction_detail,prediction_feedback
+from api.views import prediction_form,submit_prediction_feedback,prediction_history,prediction_detail,prediction_feedback, model_management, set_model_active, delete_model, review_predictions, aiengineer_prediction_detail
 from django.conf.urls.static import static
 
 
@@ -60,6 +60,13 @@ urlpatterns = [
     path('predict/history/', prediction_history, name='prediction_history'),
     path('predict/detail/<int:prediction_id>/', prediction_detail, name='prediction_detail'),
     path('predict/feedback/<int:prediction_id>/', prediction_feedback, name='prediction_feedback'),
+    ## Model Management URLs
+    path('model-management/', model_management, name='model_management'),
+    path('set-model-active/<int:model_id>/', set_model_active, name='set_model_active'),
+    path('delete-model/<int:model_id>/', delete_model, name='delete_model'),
+    ## Review Predictions URLs
+    path('review-predictions/', review_predictions, name='review_predictions'),
+    path('aiengineer-prediction-detail/<int:prediction_id>/', aiengineer_prediction_detail, name='aiengineer_prediction_detail')
 ]
 
 if settings.DEBUG:

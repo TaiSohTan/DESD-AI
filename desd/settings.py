@@ -14,9 +14,12 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Define a login URL (to redirect unauthenticated users to our custom login URL) 
+LOGIN_URL = '/login/'
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -98,6 +101,10 @@ STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 AUTH_USER_MODEL = 'api.User'
+
+# Media files (AI ENGINEER uploaded files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 ## Rest Framework Configuration
 REST_FRAMEWORK = {

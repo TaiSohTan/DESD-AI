@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 import joblib
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -175,9 +176,11 @@ def calculate_confidence_percentage(model_input, model_type):
 async def health_check():
     """Health check endpoint for the API."""
     try:
-        # Try to load one of the models to ensure everything is working
-        gbr_model
-        return {"status": "healthy"}
+        active_model_path = "active_model.pkl"
+        if os.path.exists(active_model_path):
+            return {"status": "healthy", "model": "active_model.pkl"}
+        else:
+            return {"status": "warning", "message": "No active model found"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Service unhealthy: {str(e)}")
 
@@ -188,17 +191,14 @@ async def predict_settlement(
     model_type: str = "gbr"  # Default to GBR, add query parameter for model selection
 ):
     try:
-        # Validate model type
-        if model_type not in ["gbr", "xgb", "rf"]:
-            raise HTTPException(status_code=400, detail=f"Invalid model type: {model_type}. Must be one of: gbr, xgb, rf")
-        
-        # Select the right model based on model_type
-        if model_type == "gbr":
-            model = gbr_model
-        elif model_type == "xgb":
-            model = xgb_model
-        elif model_type == "rf":
-            model = rf_model
+         # Load the active model dynamically on each request
+        active_model_path = "active_model.pkl"
+        if os.path.exists(active_model_path):
+            with open(active_model_path, "rb") as f:
+                model = joblib.load(f)
+        else:
+            # Fallback to a default model if no active model is set
+            raise HTTPException(status_code=500, detail="No active model found")
 
         # Convert request to dictionary
         input_data = request.dict()

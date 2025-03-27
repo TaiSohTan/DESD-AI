@@ -714,6 +714,7 @@ def payment_success_view(request):
     except Invoice.DoesNotExist:
         messages.error(request, "Invoice not found or you do not have permission to access it.")
         return redirect('user_invoices')
+        
 @login_required
 def payment_cancel_view(request):
     """Handle cancelled payments."""

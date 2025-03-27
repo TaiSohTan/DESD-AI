@@ -60,6 +60,8 @@ class Invoice(models.Model):
     status = models.CharField(max_length=50, choices=[('Pending', 'Pending'), ('Paid', 'Paid')])
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True, null=True)
     payment_url = models.CharField(max_length=500, blank=True, null=True)
+    description = models.CharField(max_length=500, default="MLAAS Service Invoice")  # Added this line
+
 
     def __str__(self):
         return f"Invoice {self.id} for {self.user.email}"

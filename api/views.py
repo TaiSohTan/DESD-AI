@@ -1,6 +1,7 @@
 from django.shortcuts import render
 # Create your views here.
 from django.http import HttpResponse,response,JsonResponse,HttpResponseBadRequest
+from datetime import timedelta
 from .models import Invoice,Role,Prediction
 from utils.pdf_generator import generate_invoice_pdf
 from rest_framework.decorators import api_view, permission_classes
@@ -13,6 +14,7 @@ from utils.stripe_payment import  create_checkout, verify_intent
 import stripe
 from django.views.decorators.csrf import csrf_exempt
 import logging 
+from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
@@ -20,6 +22,8 @@ from django.contrib.auth.decorators import login_required
 from utils.ml_api_client import predict, health
 from .models import User
 import re
+from django.db.models import Q 
+from django.core.paginator import Paginator,EmptyPage,PageNotAnInteger
 logger = logging.getLogger(__name__)
 
 ## Rendering the home page
@@ -27,7 +31,6 @@ def home(request):
     # If user is already logged in, redirect to dashboard
     if request.user.is_authenticated:
         return redirect('dashboard')
-    
     return render(request,'home.html')
 
 ## Rendering other static HTML Pages
@@ -91,7 +94,7 @@ def prediction_feedback(request, prediction_id):
                 
                 if not proposed_settlement or not adjustment_rationale:
                     messages.error(request, "Please provide both a proposed settlement value and rationale.")
-                    return render(request, 'prediction/prediction_feedback.html', {'prediction': prediction})
+                    return render(request, 'prediction_feedback.html', {'prediction': prediction})
                 
                 prediction.proposed_settlement = float(proposed_settlement)
                 prediction.adjustment_rationale = adjustment_rationale
@@ -104,7 +107,7 @@ def prediction_feedback(request, prediction_id):
             prediction.save()
             return redirect('prediction_history')
         
-        return render(request, 'prediction/prediction_feedback.html', {
+        return render(request, 'prediction_feedback.html', {
             'prediction': prediction,
             'input_data': prediction.input_data,
             'result': prediction.result
@@ -290,8 +293,8 @@ def dashboard(request):
     elif user.role == 'AI_ENGINEER':
         # Add AI engineer-specific data
         context.update({
-            'model_status': 'Active',  # This would come from your ML system
-            'recent_predictions': 145  # This would come from your ML system
+            'model_status': 'Active',  
+            'recent_predictions': 145  
         })
     else:
         # Add regular user-specific data
@@ -575,147 +578,180 @@ def delete_user(request, user_id):
     
     return redirect('user_management')
 
-## Download PDF Invoice 
+@login_required
+def user_invoices(request):
+    """View for displaying the logged-in user's invoices."""
+    invoices = Invoice.objects.filter(user=request.user).order_by('-issued_date')
+    return render(request, 'user_invoices.html', {'invoices': invoices})
+
+@login_required
 def download_invoice_pdf(request, invoice_id):
+    """Allow the logged-in user to download their own invoice as a PDF."""
     try:
-        invoice = Invoice.objects.get(id=invoice_id)
+        # Restrict access to the logged-in user's invoices
+        invoice = Invoice.objects.get(id=invoice_id, user=request.user)
         buffer = generate_invoice_pdf(invoice)
 
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="invoice_{invoice_id}.pdf"'
         return response
     except Invoice.DoesNotExist:
-        return HttpResponse("Invoice not found.", status=404)
+        messages.error(request, "Invoice not found or you do not have permission to access it.")
+        return redirect('user_invoices')
     
 ## Creating a Stripe Payment Session for the Invoices
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@login_required
 def create_payment_session(request, invoice_id):
+    """Redirect the logged-in user to the Stripe payment page for their unpaid invoice."""
     try:
-        invoice = Invoice.objects.get(id=invoice_id)
+        # Restrict access to the logged-in user's invoices
+        invoice = Invoice.objects.get(id=invoice_id, user=request.user, status='Pending')
         domain_url = request.build_absolute_uri('/').rstrip('/')
         checkout_session = create_checkout(invoice, domain_url)
 
         if checkout_session:
+            # Update the invoice with payment details - FIXED ACCESS METHODS
             invoice.payment_url = checkout_session.url
+            # The payment_intent is retrievable from the session's attributes
             invoice.stripe_payment_intent_id = checkout_session.payment_intent
             invoice.save()
-            return Response({
-                'success': True,
-                'checkout_url': checkout_session.url
-            })
+            
+            # Add debug log to confirm values are saved
+            print(f"Saved payment details: URL={invoice.payment_url}, Intent ID={invoice.stripe_payment_intent_id}")
+
+            # Redirect the user to the Stripe payment page
+            return redirect(checkout_session.url)
         else:
-            return Response({
-                'success': False,
-                'error': 'Failed to create payment session'
-            }, status=400)
+            messages.error(request, "Failed to create payment session. Please try again.")
+            return redirect('user_invoices')
 
     except Invoice.DoesNotExist:
-        return Response({
-            'success': False,
-            'error': 'Invoice ID Provided is Not Found'
-        }, status=404)
+        messages.error(request, "Invoice not found or you do not have permission to access it.")
+        return redirect('user_invoices')
 
-    except Exception as Exp:
-        return Response({
-            'success': False,
-            'error': str(Exp)
-        }, status=400)
+    except Exception as exp:
+        # Add detailed debugging information
+        print(f"Payment session error: {str(exp)}")
+        print(f"Payment session error type: {type(exp)}")
+        if hasattr(exp, 'json_body'):
+            print(f"Stripe error details: {exp.json_body}")
+        messages.error(request, f"An error occurred: {str(exp)}")
+        return redirect('user_invoices')
+
+@login_required
+def payment_success_view(request):
+    """Handle successful payments and update invoice status."""
+    session_id = request.GET.get('session_id')
+    invoice_id = request.GET.get('invoice_id')
     
-## Checking the Payment Status of an Invoice 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def verify_payment_status(request, invoice_id):
     try:
-        invoice = Invoice.objects.get(id=invoice_id)
-
-        if not invoice.stripe_payment_intent_id:
-            return Response({
-                'success': True,
-                'status': 'Not Initiated',
-                'invoice_status': invoice.status
-            })
+        invoice = Invoice.objects.get(id=invoice_id, user=request.user)
         
-        payment_status = verify_intent(invoice.stripe_payment_intent_id)
-
-        # Update invoice status if payment is successful
-        if payment_status == 'succeeded' and invoice.status == 'Pending':
-            invoice.status = 'Paid'
-            invoice.save()
-
-        return Response({
-            'success': True,
-            'status': payment_status,
-            'invoice_status': invoice.status
-        })
-    except Invoice.DoesNotExist:
-        return Response({
-            'success': False,
-            'error': 'Invoice ID Provided is Not Found'
-        }, status=404)
-
-    except Exception as Exp:
-        return Response({
-            'success': False,
-            'error': str(Exp)
-        }, status=400)
+        # If no payment intent ID but we have a session ID, try to get the payment intent from the session
+        if not invoice.stripe_payment_intent_id and session_id:
+            try:
+                # Retrieve the session to get the payment intent
+                session = stripe.checkout.Session.retrieve(session_id)
+                if session.payment_intent:
+                    invoice.stripe_payment_intent_id = session.payment_intent
+                    invoice.save()
+                    print(f"Retrieved payment intent {invoice.stripe_payment_intent_id} from session {session_id}")
+            except Exception as e:
+                print(f"Error retrieving session: {str(e)}")
+        
+        # Verify payment status and update invoice
+        if invoice.stripe_payment_intent_id:
+            payment_status = verify_intent(invoice.stripe_payment_intent_id)
+            print(f"Payment status: {payment_status} for intent {invoice.stripe_payment_intent_id}")
+            
+            if payment_status == 'succeeded' and invoice.status == 'Pending':
+                invoice.status = 'Paid'
+                invoice.save()
+                messages.success(request, "Payment successful! Your invoice has been marked as paid.")
+            elif payment_status == 'succeeded':
+                messages.info(request, "Payment was successful. This invoice was already marked as paid.")
+            else:
+                messages.warning(request, f"Payment status: {payment_status}. Please contact support if you believe this is an error.")
+        else:
+            messages.warning(request, "No payment was found for this invoice. Please try again or contact support.")
+        
+        return redirect('user_invoices')
     
+    except Invoice.DoesNotExist:
+        messages.error(request, "Invoice not found or you do not have permission to access it.")
+        return redirect('user_invoices')
+@login_required
+def payment_cancel_view(request):
+    """Handle cancelled payments."""
+    invoice_id = request.GET.get('invoice_id')
+    
+    try:
+        invoice = Invoice.objects.get(id=invoice_id, user=request.user)
+        messages.warning(request, "Payment was cancelled. Your invoice remains unpaid.")
+        return redirect('user_invoices')
+    
+    except Invoice.DoesNotExist:
+        messages.error(request, "Invoice not found or you do not have permission to access it.")
+        return redirect('user_invoices')
+
+@login_required
+def invoice_detail(request, invoice_id):
+    """View for displaying the details of a single invoice."""
+    try:
+        invoice = Invoice.objects.get(id=invoice_id, user=request.user)
+        
+        # If there's a payment intent, check its status
+        if invoice.stripe_payment_intent_id and invoice.status == 'Pending':
+            payment_status = verify_intent(invoice.stripe_payment_intent_id)
+            
+            if payment_status == 'succeeded':
+                invoice.status = 'Paid'
+                invoice.save()
+                messages.success(request, "Good news! Your payment has been confirmed.")
+        
+        return render(request, 'invoice_detail.html', {'invoice': invoice})
+    
+    except Invoice.DoesNotExist:
+        messages.error(request, "Invoice not found or you do not have permission to access it.")
+        return redirect('user_invoices')
+
 @csrf_exempt
 def stripe_webhook(request):
+    """Handle Stripe webhooks for automatic payment status updates."""
     payload = request.body
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
-    event = None
-
+    
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
-    except ValueError:
+    except ValueError as e:
         # Invalid payload
         return HttpResponse(status=400)
-    except stripe.error.SignatureVerificationError:
+    except stripe.error.SignatureVerificationError as e:
         # Invalid signature
         return HttpResponse(status=400)
-
+    
     # Handle the event
-    if event['type'] == 'payment_intent.succeeded':
-        payment_intent = event['data']['object']
-        invoice_id = payment_intent['metadata'].get('invoice_id')
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
         
+        # Extract invoice_id from metadata
+        invoice_id = session.get('metadata', {}).get('invoice_id')
         if invoice_id:
             try:
                 invoice = Invoice.objects.get(id=invoice_id)
-                invoice.status = 'Paid'
-                invoice.save()
-                logger.info(f"Invoice {invoice_id} status updated to Paid")
+                
+                # Update the invoice status
+                if invoice.status == 'Pending':
+                    invoice.status = 'Paid'
+                    invoice.save()
+                    print(f"Invoice #{invoice_id} marked as paid via webhook")
             except Invoice.DoesNotExist:
-                logger.info(f"Invoice {invoice_id} status not updated to Paid")
+                print(f"Invoice #{invoice_id} not found")
     
+    # Return a response to acknowledge receipt of the event
     return HttpResponse(status=200)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-## Handles the views if the payment is a success
-def payment_success(request):
-    session_id = request.GET.get('session_id')
-    invoice_id = request.GET.get('invoice_id')
-    return Response({
-        'success': True,
-        'message': 'Payment successful',
-        'session_id': session_id,
-        'invoice_id': invoice_id
-    })
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-## Handles the views if the payment is a failure
-def payment_cancel(request):
-    invoice_id = request.GET.get('invoice_id')
-    return Response({
-        'success': False,
-        'message': 'Payment cancelled',
-        'invoice_id': invoice_id
-    })
 
 ## Handles Refresh Token Views
 def refresh_token_view(request):
@@ -740,3 +776,217 @@ def refresh_token_view(request):
         return response
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=401)
+
+@login_required
+def finance_invoice_list(request):
+    """View for finance team to list all invoices"""
+    # Check permissions
+    if request.user.role not in [Role.FINANCE_TEAM, Role.ADMIN]:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('dashboard')
+    
+    # Get filters from request
+    search_query = request.GET.get('search', '')
+    status_filter = request.GET.get('status', '')
+    
+    # Start with all invoices
+    invoices = Invoice.objects.all().order_by('-issued_date')
+    
+    # Apply filters
+    if search_query:
+        invoices = invoices.filter(
+            Q(id__icontains=search_query) | 
+            Q(user__email__icontains=search_query) |
+            Q(status__icontains=search_query)
+        )
+    
+    if status_filter:
+        invoices = invoices.filter(status=status_filter)
+    
+    # Pagination
+    page = request.GET.get('page', 1)
+    paginator = Paginator(invoices, 10)  # Show 10 invoices per page
+    
+    try:
+        invoices = paginator.page(page)
+    except PageNotAnInteger:
+        invoices = paginator.page(1)
+    except EmptyPage:
+        invoices = paginator.page(paginator.num_pages)
+    
+    return render(request, 'invoice_list.html', {
+        'invoices': invoices
+    })
+
+@login_required
+def finance_invoice_create(request):
+    """View for finance team to create a new invoice"""
+    # Check permissions
+    if request.user.role not in [Role.FINANCE_TEAM, Role.ADMIN]:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('dashboard')
+    
+    # Get all users for the dropdown
+    users = User.objects.all().order_by('email')
+    
+    if request.method == 'POST':
+        # Process form data
+        try:
+            user_id = request.POST.get('user')
+            description = request.POST.get('description', f'MLAAS Service Invoice')
+            amount = request.POST.get('amount')
+            due_date = request.POST.get('due_date')
+            status = request.POST.get('status')
+            
+            # Validate required fields
+            if not all([user_id, amount, due_date, status]):
+                messages.error(request, "All fields are required.")
+                return render(request, 'finance/invoice_form.html', {'users': users})
+            
+            # Create invoice
+            invoice = Invoice(
+                user_id=user_id,
+                description=description,
+                amount=amount,
+                due_date=due_date,
+                status=status
+            )
+            invoice.save()
+            
+            messages.success(request, f"Invoice #{invoice.id} created successfully.")
+            return redirect('finance_invoice_detail', invoice_id=invoice.id)
+            
+        except Exception as e:
+            messages.error(request, f"Error creating invoice: {str(e)}")
+    
+    # Default due date (30 days from now)
+    default_due_date = (timezone.now() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
+    
+    return render(request, 'invoice_form.html', {
+        'users': users,
+        'default_due_date': default_due_date
+    })
+
+@login_required
+def finance_invoice_edit(request, invoice_id):
+    """View for finance team to edit an existing invoice"""
+    # Check permissions
+    if request.user.role not in [Role.FINANCE_TEAM, Role.ADMIN]:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('dashboard')
+    
+    try:
+        invoice = Invoice.objects.get(id=invoice_id)
+        
+        # Get all users for the dropdown
+        users = User.objects.all().order_by('email')
+        
+        if request.method == 'POST':
+            # Process form data
+            try:
+                invoice.user_id = request.POST.get('user')
+                invoice.description = request.POST.get('description', f'MLAAS Service Invoice')
+                invoice.amount = request.POST.get('amount')
+                invoice.due_date = request.POST.get('due_date')
+                invoice.status = request.POST.get('status')
+                
+                # Validate required fields
+                if not all([invoice.user_id, invoice.amount, invoice.due_date, invoice.status]):
+                    messages.error(request, "All fields are required.")
+                    # Add default_due_date for template
+                    default_due_date = (timezone.now() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
+                    return render(request, 'invoice_form.html', {
+                        'invoice': invoice, 
+                        'users': users,
+                        'default_due_date': default_due_date
+                    })
+                
+                invoice.save()
+                
+                messages.success(request, f"Invoice #{invoice.id} updated successfully.")
+                return redirect('finance_invoice_detail', invoice_id=invoice.id)
+                
+            except Exception as e:
+                messages.error(request, f"Error updating invoice: {str(e)}")
+        
+        # Add default_due_date for GET requests as well
+        default_due_date = (timezone.now() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
+        return render(request, 'invoice_form.html', {
+            'invoice': invoice,
+            'users': users,
+            'default_due_date': default_due_date
+        })
+        
+    except Invoice.DoesNotExist:
+        messages.error(request, "Invoice not found.")
+        return redirect('finance_invoice_list')
+
+@login_required
+def finance_invoice_detail(request, invoice_id):
+    """View for finance team to view invoice details"""
+    # Check permissions
+    if request.user.role not in [Role.FINANCE_TEAM, Role.ADMIN]:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('dashboard')
+    
+    try:
+        invoice = Invoice.objects.get(id=invoice_id)
+        return render(request, 'finance/invoice_detail.html', {'invoice': invoice})
+        
+    except Invoice.DoesNotExist:
+        messages.error(request, "Invoice not found.")
+        return redirect('finance_invoice_list')
+
+@login_required
+def finance_invoice_delete(request, invoice_id):
+    """View for finance team to delete an invoice"""
+    # Check permissions
+    if request.user.role not in [Role.FINANCE_TEAM, Role.ADMIN]:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('dashboard')
+    
+    try:
+        invoice = Invoice.objects.get(id=invoice_id)
+        invoice_id = invoice.id  # Save ID for the success message
+        invoice.delete()
+        
+        messages.success(request, f"Invoice #{invoice_id} deleted successfully.")
+        return redirect('finance_invoice_list')
+        
+    except Invoice.DoesNotExist:
+        messages.error(request, "Invoice not found.")
+        return redirect('finance_invoice_list')
+
+@login_required
+def finance_invoice_verify_payment(request, invoice_id):
+    """View for finance team to verify payment status"""
+    # Check permissions
+    if request.user.role not in [Role.FINANCE_TEAM, Role.ADMIN]:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('dashboard')
+    
+    try:
+        invoice = Invoice.objects.get(id=invoice_id)
+        
+        # Check if there's a payment intent
+        if not invoice.stripe_payment_intent_id:
+            messages.warning(request, "No payment has been initiated for this invoice.")
+            return redirect('finance_invoice_detail', invoice_id=invoice.id)
+        
+        # Verify payment status
+        payment_status = verify_intent(invoice.stripe_payment_intent_id)
+        
+        if payment_status == 'succeeded' and invoice.status == 'Pending':
+            invoice.status = 'Paid'
+            invoice.save()
+            messages.success(request, "Payment verified and invoice marked as paid.")
+        elif payment_status == 'succeeded':
+            messages.info(request, "Payment has been verified. Invoice is already marked as paid.")
+        else:
+            messages.warning(request, f"Payment status: {payment_status}. Invoice remains pending.")
+        
+        return redirect('finance_invoice_detail', invoice_id=invoice.id)
+        
+    except Invoice.DoesNotExist:
+        messages.error(request, "Invoice not found.")
+        return redirect('finance_invoice_list')

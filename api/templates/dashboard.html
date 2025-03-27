@@ -55,9 +55,18 @@
             <div class="col-md-4 mb-4">
                 <div class="card dashboard-card">
                     <div class="card-body">
-                        <h5 class="card-title">Billing & Invoicing Statistics</h5>
-                        <p class="card-text">View all Invoices across the system</p>
-                        <a href="#" class="btn btn-primary">View Billing Information</a>
+                        <h5 class="card-title">Invoice Management</h5>
+                        <p class="card-text">Manage customer invoices and payments.</p>
+                        <a href="{% url 'finance_invoice_list' %}" class="btn btn-primary">Manage Invoices</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Create New Invoice</h5>
+                        <p class="card-text">Create a new invoice for a customer.</p>
+                        <a href="{% url 'finance_invoice_create' %}" class="btn btn-success">Create Invoice</a>
                     </div>
                 </div>
             </div>
@@ -77,25 +86,16 @@
                     <div class="card-body">
                         <h5 class="card-title">Invoice Management</h5>
                         <p class="card-text">Manage customer invoices and payments.</p>
-                        <a href="#" class="btn btn-primary">Manage Invoices</a>
+                        <a href="{% url 'finance_invoice_list' %}" class="btn btn-primary">Manage Invoices</a>
                     </div>
                 </div>
             </div>
             <div class="col-md-4 mb-4">
                 <div class="card dashboard-card">
                     <div class="card-body">
-                        <h5 class="card-title">Financial Reports</h5>
-                        <p class="card-text">Generate and view financial reports.</p>
-                        <a href="#" class="btn btn-primary">View Reports</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card dashboard-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Payment Processing</h5>
-                        <p class="card-text">Process and verify customer payments.</p>
-                        <a href="#" class="btn btn-primary">Process Payments</a>
+                        <h5 class="card-title">Create New Invoice</h5>
+                        <p class="card-text">Create a new invoice for a customer.</p>
+                        <a href="{% url 'finance_invoice_create' %}" class="btn btn-success">Create Invoice</a>
                     </div>
                 </div>
             </div>
@@ -145,6 +145,15 @@
                         <h5 class="card-title">View History</h5>
                         <p class="card-text">Access your previous prediction history and results.</p>
                         <a href="{% url 'prediction_history' %}" class="btn btn-primary">View History</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title">View Invoices</h5>
+                        <p class="card-text">View your Invoices and Make Payment</p>
+                        <a href="{% url 'user_invoices' %}" class="btn btn-primary">View Invoices</a>
                     </div>
                 </div>
             </div>

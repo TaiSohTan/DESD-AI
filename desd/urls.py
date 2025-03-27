@@ -17,11 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.conf import settings
 from django.urls import path,include
-from api.views import payment_success,payment_cancel
+from api.views import payment_success_view,payment_cancel_view
 from api.views import home,about,services,pricing,contact
 from api.views import login_view,register_view,logout_view,password_reset,refresh_token_view,dashboard
 from api.views import user_management,add_user,edit_user,change_user_role,delete_user
 from api.views import prediction_form,submit_prediction_feedback,prediction_history,prediction_detail,prediction_feedback
+from api.views import user_invoices,download_invoice_pdf,create_payment_session,invoice_detail,stripe_webhook
+from api.views import finance_invoice_list,finance_invoice_create,finance_invoice_detail,finance_invoice_edit,finance_invoice_delete,finance_invoice_verify_payment
 from django.conf.urls.static import static
 
 
@@ -46,8 +48,8 @@ urlpatterns = [
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
     ## Payment Redirects
-    path('payment-success/',payment_success,name='payment_success'),
-    path('payment-failed/',payment_cancel,name='payment_cancel'),
+    path('payment-success/',payment_success_view,name='payment_success'),
+    path('payment-failed/',payment_cancel_view,name='payment_cancel'),
     ## User Management URLs
     path('user-management/', user_management, name='user_management'),
     path('user-management/add/', add_user, name='add_user'),
@@ -60,6 +62,21 @@ urlpatterns = [
     path('predict/history/', prediction_history, name='prediction_history'),
     path('predict/detail/<int:prediction_id>/', prediction_detail, name='prediction_detail'),
     path('predict/feedback/<int:prediction_id>/', prediction_feedback, name='prediction_feedback'),
+    ## Payment and Billing URLs
+    path('user/invoices/', user_invoices, name='user_invoices'),
+    path('user/invoices/<int:invoice_id>/download/', download_invoice_pdf, name='download_invoice_pdf'),
+    path('user/invoices/<int:invoice_id>/pay/', create_payment_session, name='create_payment_session'),
+    path('user/payment/success/', payment_success_view, name='payment_success_view'),
+    path('user/payment/cancel/', payment_cancel_view, name='payment_cancel_view'),
+    path('user/invoices/<int:invoice_id>/', invoice_detail, name='invoice_detail'),
+    path('webhook/stripe/', stripe_webhook, name='stripe_webhook'),
+    ## Payment & Invoicing Management
+    path('finance/invoices/', finance_invoice_list, name='finance_invoice_list'),
+    path('finance/invoices/create/',finance_invoice_create, name='finance_invoice_create'),
+    path('finance/invoices/<int:invoice_id>/', finance_invoice_detail, name='finance_invoice_detail'),
+    path('finance/invoices/<int:invoice_id>/edit/', finance_invoice_edit, name='finance_invoice_edit'),
+    path('finance/invoices/<int:invoice_id>/delete/', finance_invoice_delete, name='finance_invoice_delete'),
+    path('finance/invoices/<int:invoice_id>/verify-payment/', finance_invoice_verify_payment, name='finance_invoice_verify_payment'),
 ]
 
 if settings.DEBUG:

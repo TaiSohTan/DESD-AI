@@ -169,7 +169,7 @@ def calculate_confidence_percentage(model_input, model_type):
     adjusted_confidence = base_confidence * model_confidence_factor[model_type]
     
     # Return as percentage string
-    return f"{adjusted_confidence:.1f}%"
+    return f"{adjusted_confidence:.1f}"
 
 @app.get("/health")
 async def health_check():

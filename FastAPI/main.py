@@ -3,17 +3,31 @@ import numpy as np
 import os
 import joblib
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends 
 from pydantic import BaseModel, Field, validator
 from typing import Dict, Any, Union, Optional
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+
+## Authentication Utility
+from auth import get_current_user
 
 # Create FastAPI app
 app = FastAPI(
     title="Settlement Value Prediction API",
     description="API for predicting settlement values based on claim details",
-    version="1.0.0"
+    version="1.2.0"
+)
+
+## Add CORS Middleware to allow responses from Django
+app.add_middleware(
+    CORSMiddleware,
+    ## Allow communication with the Django App 
+    allow_origins=["http://127.0.0.1:8000"], 
+    allow_credentials = True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Load the serialized model
@@ -188,9 +202,11 @@ async def health_check():
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_settlement(
     request: PredictionRequest,
-    model_type: str = "gbr"  # Default to GBR, add query parameter for model selection
+    model_type: str = "gbr",  # Default to GBR, add query parameter for model selection
+    current_user: dict = Depends(get_current_user)  # Add User Dependency
 ):
     try:
+        user_id = current_user.get("user_id")
          # Load the active model dynamically on each request
         active_model_path = "active_model.pkl"
         if os.path.exists(active_model_path):
@@ -252,15 +268,6 @@ async def predict_settlement(
         import traceback
         traceback.print_exc()  # This will give more detailed error information
         raise HTTPException(status_code=500, detail=f"Prediction ERROR: {str(e)}")
-
-
-# Mount static files directory
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Add a route to serve the HTML form
-@app.get("/form")
-async def get_form():
-    return FileResponse("static/form.html")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8088, reload=True)

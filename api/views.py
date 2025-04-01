@@ -216,7 +216,7 @@ def prediction_form(request):
         
         try:
             # Make prediction using client
-            prediction_result = predict(input_data)
+            prediction_result = predict(input_data, request=request)
             
             # Get settlement value from the correct key
             settlement_value = prediction_result.get('settlement_value', 0)

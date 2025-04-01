@@ -17,7 +17,6 @@ RUN pip install --upgrade pip && \
 # Copy the application code and model files
 COPY *.py /app/
 COPY *.pkl /app/
-COPY static/ /app/static/
 
 # Expose the port
 EXPOSE 8088

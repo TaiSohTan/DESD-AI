@@ -294,13 +294,11 @@ def register_view(request):
 @login_required
 def dashboard(request):
     user = request.user
-    
     # Base context with user info
     context = {
-        'user': user
+        'user': user,
+        'role': user.role,
     }
-    
-    # Add role-specific context data
     if user.role == 'ADMIN':
         # Add admin-specific data
         context.update({

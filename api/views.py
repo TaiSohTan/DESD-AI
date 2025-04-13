@@ -42,6 +42,7 @@ from utils.stripe_payment import create_checkout, verify_intent
 logger = logging.getLogger(__name__)
 
 # Imports for AIEngineer Functionality
+import json
 import os
 import joblib
 import shutil
@@ -1050,6 +1051,8 @@ def model_management(request):
         if not model_file.name.endswith('.pkl'):
             messages.error(request, "Only .pkl files are allowed.")
             return redirect('model_management')
+
+        requires_scaling = 'requires_scaling' in request.POST
         
         # Save model with provided info
         model = MLModel(
@@ -1058,7 +1061,8 @@ def model_management(request):
             description=description,
             file=model_file,
             uploaded_by=request.user,
-            is_active=set_active
+            is_active=set_active,
+            requires_scaling=requires_scaling
         )
         model.save()
         
@@ -1080,10 +1084,24 @@ def model_management(request):
                     os.makedirs(fastapi_dir)
                 
                 # Set destination path
-                dest_path = os.path.join(fastapi_dir, dest_filename)
+                dest_path = os.path.join(fastapi_dir, "active_model.pkl")
                 
                 # Copy the file
                 shutil.copy2(src_path, dest_path)
+
+                # Create and save metadata file with requires_scaling information
+                metadata = {
+                    "name": model.name,
+                    "description": model.description,
+                    "model_type": model.model_type,
+                    "requires_scaling": model.requires_scaling,
+                    "last_updated": datetime.now().isoformat()
+                }
+                
+                # Save metadata to FastAPI directory
+                metadata_path = os.path.join(fastapi_dir, "active_model_metadata.json")
+                with open(metadata_path, 'w') as f:
+                    json.dump(metadata, f)
                 
                 messages.success(request, f"Model '{model_name}' uploaded and set as active. FastAPI service will use this model for predictions.")
             except Exception as e:
@@ -1165,6 +1183,22 @@ def set_model_active(request, model_id):
             
             # Copy the file
             shutil.copy2(src_path, dest_path)
+
+            # Create and save metadata file with requires_scaling information
+            metadata = {
+                "name": model.name,
+                "description": model.description,
+                "model_type": model.model_type,
+                "requires_scaling": model.requires_scaling,
+                "last_updated": datetime.now().isoformat()
+            }
+
+            # Save metadata to FastAPI directory
+            metadata_path = os.path.join(fastapi_dir, "active_model_metadata.json")
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f)
+                print(f"Metadata saved to {metadata_path}")
+                print(f"Metadata content: {metadata}")
             
             return JsonResponse({
                 "success": True, 

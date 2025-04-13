@@ -21,13 +21,23 @@ def predict(data, request = None):
         )
         response.raise_for_status()
         
-        # Print the response for debugging
-        print("FastAPI response:", response.json())
+        # Get response data
+        response_data = response.json()
         
-        return response.json()
+        # Print the response for debugging
+        print("FastAPI response:", response_data)
+
+        # Parse the confidence value as float (removing % if present)
+        if 'confidence' in response_data:
+            confidence_str = response_data['confidence']
+            if isinstance(confidence_str, str):
+                confidence_str = confidence_str.strip('%')
+            response_data['confidence'] = float(confidence_str)
+        
+        return response_data
     except requests.exceptions.RequestException as e:
         print(f"Error calling ML API: {str(e)}")
-        if response.status_code == 401:
+        if hasattr(e, 'response') and e.response.status_code == 401:
             raise Exception("Authentication to ML Service has Failed Please Login again")
         raise Exception(f"Failed to communicate with ML service: {str(e)}")
 

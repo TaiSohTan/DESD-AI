@@ -1,1 +1,1 @@
-{"name": "gbr", "description": "", "model_type": "gbrgbr", "requires_scaling": false, "last_updated": "2025-04-13T11:44:22.934499"}
+{"name": "GBR v1", "description": "Its a gradient boosting regressor ", "model_type": "Gradient Boosting Regressor ", "requires_scaling": false, "last_updated": "2025-04-14T10:03:57.461526"}

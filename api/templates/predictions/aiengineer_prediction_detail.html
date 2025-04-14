@@ -1,0 +1,151 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}Prediction Detail - AI Engineer View{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="text-primary">Prediction Review</h1>
+            <p class="lead">Detailed information for Prediction #{{ prediction.id }}</p>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Status and Actions Card -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Status & Actions</h5>
+            <div>
+                {% if prediction.is_checked %}
+                    <span class="badge bg-success">Checked</span>
+                {% else %}
+                    <span class="badge bg-warning">Unchecked</span>
+                {% endif %}
+                
+                {% if prediction.is_reasonable == True %}
+                    <span class="badge bg-success ms-2">Accepted by User</span>
+                {% elif prediction.is_reasonable == False %}
+                    <span class="badge bg-danger ms-2">Disputed by User</span>
+                {% else %}
+                    <span class="badge bg-secondary ms-2">No Feedback</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Created:</strong> {{ prediction.timestamp|date:"F j, Y, g:i a" }}</p>
+                    <p><strong>User:</strong> {{ user.name }} ({{ user.email }})</p>
+                    {% if prediction.feedback_date %}
+                        <p><strong>Feedback Date:</strong> {{ prediction.feedback_date|date:"F j, Y, g:i a" }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 text-end">
+                    {% if not prediction.is_checked %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <button type="submit" name="mark_checked" class="btn btn-success">
+                                <i class="bi bi-check-circle"></i> Mark as Checked
+                            </button>
+                        </form>
+                    {% else %}
+                        <p class="text-success"><i class="bi bi-check-circle-fill"></i> This prediction has been checked</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if prediction.is_reasonable == False %}
+                <div class="alert alert-danger mt-3">
+                    <h5>User Dispute Details</h5>
+                    <p><strong>Proposed Settlement:</strong> ${{ prediction.proposed_settlement|floatformat:2 }}</p>
+                    <p><strong>Adjustment Rationale:</strong> {{ prediction.adjustment_rationale }}</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Prediction Result Card -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Prediction Result</h5>
+        </div>
+        <div class="card-body text-center">
+            <h2 class="display-4">${{ prediction.settlement_value|floatformat:2 }}</h2>
+            <p class="lead">
+                Confidence: 
+                <span class="badge 
+                    {% if result.confidence >= 80 %}bg-success
+                    {% elif result.confidence >= 60 %}bg-primary
+                    {% elif result.confidence >= 40 %}bg-warning
+                    {% else %}bg-danger{% endif %}">
+                    {{ result.confidence }}%
+                </span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Input Data Card -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Input Data</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="border-bottom pb-2">Accident Information</h6>
+                    <p><strong>Accident Type:</strong> {{ input_data.AccidentType }}</p>
+                    <p><strong>Accident Description:</strong> {{ input_data.Accident_Description }}</p>
+                    <p><strong>Weather Conditions:</strong> {{ input_data.Weather_Conditions }}</p>
+                    <p><strong>Days Since Accident:</strong> {{ input_data.Days_Between_Accident_And_Claim }}</p>
+                    <p><strong>Police Report:</strong> {{ input_data.Police_Report_Filed|yesno:"Yes,No" }}</p>
+                    <p><strong>Witness Present:</strong> {{ input_data.Witness_Present|yesno:"Yes,No" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="border-bottom pb-2">Injury Information</h6>
+                    <p><strong>Injury Description:</strong> {{ input_data.Injury_Description }}</p>
+                    <p><strong>Dominant Injury:</strong> {{ input_data.Dominant_injury }}</p>
+                    <p><strong>Whiplash:</strong> {{ input_data.Whiplash|yesno:"Yes,No" }}</p>
+                    <p><strong>Psychological Injury:</strong> {{ input_data.Minor_Psychological_Injury|yesno:"Yes,No" }}</p>
+                    <p><strong>Injury Prognosis:</strong> {{ input_data.Injury_Prognosis }} months</p>
+                </div>
+            </div>
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <h6 class="border-bottom pb-2">Vehicle Information</h6>
+                    <p><strong>Vehicle Type:</strong> {{ input_data.Vehicle_Type }}</p>
+                    <p><strong>Vehicle Age:</strong> {{ input_data.Vehicle_Age }} years</p>
+                    <p><strong>Driver Age:</strong> {{ input_data.Driver_Age }} years</p>
+                    <p><strong>Number of Passengers:</strong> {{ input_data.Number_of_Passengers }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="border-bottom pb-2">Additional Information</h6>
+                    <p><strong>Attorney Represented:</strong> {{ input_data.RepresentedByAttorney|yesno:"Yes,No" }}</p>
+                    <p><strong>Credit Score:</strong> {{ input_data.Credit_Score }}</p>
+                    <p><strong>Annual Income:</strong> ${{ input_data.Annual_Income|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mb-5">
+        <a href="{% url 'review_predictions' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to All Predictions
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-primary">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

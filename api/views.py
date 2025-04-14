@@ -50,211 +50,39 @@ from django.contrib import messages
 from datetime import datetime, timedelta
 from django.core.paginator import Paginator
 
-## Rendering the home page
+#########################################################################
+# GENERAL PAGE VIEWS
+#########################################################################
+
 def home(request):
+    """Rendering the home page"""
     # If user is already logged in, redirect to dashboard
     if request.user.is_authenticated:
         return redirect('dashboard')
-    return render(request,'home.html')
+    return render(request,'general/home.html')
 
-## Rendering other static HTML Pages
 def about(request):
-    return render(request,'about.html')
+    """About page view"""
+    return render(request,'general/about.html')
 
 def services(request):
-    return render(request,'services.html')
+    """Services page view"""
+    return render(request,'general/services.html')
 
 def pricing(request):
-    return render(request,'pricing.html')
+    """Pricing page view"""
+    return render(request,'general/pricing.html')
 
 def contact(request):
-    return render(request,'contact.html')
+    """Contact page view"""
+    return render(request,'general/contact.html')
 
-@login_required
-def prediction_history(request):
-    """View for user's prediction history"""
-    # Get the user's predictions
-    predictions = Prediction.objects.filter(user=request.user)
-    
-    return render(request, 'prediction_history.html', {
-        'predictions': predictions
-    })
+#########################################################################
+# AUTHENTICATION VIEWS
+#########################################################################
 
-@login_required
-def prediction_detail(request, prediction_id):
-    """View for detailed prediction information"""
-    try:
-        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
-        
-        return render(request, 'prediction_detail.html', {
-            'prediction': prediction,
-            'input_data': prediction.input_data,
-            'result': prediction.result
-        })
-    except Prediction.DoesNotExist:
-        messages.error(request, "Prediction not found or you don't have permission to access it.")
-        return redirect('prediction_history')
-
-@login_required
-def prediction_feedback(request, prediction_id):
-    """View for providing feedback on a prediction"""
-    try:
-        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
-        
-        # Check if feedback has already been provided
-        if prediction.is_reasonable is not None:
-            messages.warning(request, "Feedback has already been provided for this prediction.")
-            return redirect('prediction_detail', prediction_id=prediction.id)
-        
-        if request.method == 'POST':
-            is_reasonable = request.POST.get('is_reasonable') == 'yes'
-            
-            prediction.is_reasonable = is_reasonable
-            prediction.feedback_date = timezone.now()
-
-            if not is_reasonable:
-                proposed_settlement = request.POST.get('proposed_settlement')
-                adjustment_rationale = request.POST.get('adjustment_rationale')
-                
-                if not proposed_settlement or not adjustment_rationale:
-                    messages.error(request, "Please provide both a proposed settlement value and rationale.")
-                    return render(request, 'prediction_feedback.html', {'prediction': prediction})
-                
-                prediction.proposed_settlement = float(proposed_settlement)
-                prediction.adjustment_rationale = adjustment_rationale
-                prediction.needs_review = True
-                
-                messages.info(request, "Your feedback has been recorded. This case has been flagged for supervisor review.")
-            else:
-                messages.success(request, "Thank you for confirming the settlement value.")
-            
-            prediction.save()
-            return redirect('prediction_history')
-        
-        return render(request, 'prediction_feedback.html', {
-            'prediction': prediction,
-            'input_data': prediction.input_data,
-            'result': prediction.result
-        })
-        
-    except Prediction.DoesNotExist:
-        messages.error(request, "Prediction not found or you don't have permission to access it.")
-        return redirect('prediction_history')
-
-@login_required
-def submit_prediction_feedback(request):
-    """Handle submission of feedback on a prediction"""
-    if request.method != 'POST':
-        return HttpResponseBadRequest("Invalid request method")
-    
-    prediction_id = request.POST.get('prediction_id')
-    is_reasonable = request.POST.get('is_reasonable') == 'yes'
-    
-    try:
-        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
-        
-        # Update the prediction with feedback
-        prediction.is_reasonable = is_reasonable
-        prediction.feedback_date = timezone.now()
-        
-        if not is_reasonable:
-            proposed_settlement = request.POST.get('proposed_settlement')
-            adjustment_rationale = request.POST.get('adjustment_rationale')
-            
-            if not proposed_settlement or not adjustment_rationale:
-                messages.error(request, "Please provide both a proposed settlement value and rationale.")
-                return redirect('prediction_result', prediction_id=prediction_id)
-            
-            prediction.proposed_settlement = float(proposed_settlement)
-            prediction.adjustment_rationale = adjustment_rationale
-            prediction.needs_review = True
-            
-            messages.info(request, "Your feedback has been recorded. This case has been flagged for supervisor review.")
-        else:
-            messages.success(request, "Thank you for confirming the settlement value.")
-        
-        prediction.save()
-        
-        # Redirect to prediction history
-        return redirect('prediction_history')
-        
-    except Prediction.DoesNotExist:
-        messages.error(request, "Prediction not found or you don't have permission to access it.")
-        return redirect('dashboard')
-    except ValueError:
-        messages.error(request, "Invalid proposed settlement value.")
-        return redirect('prediction_result', prediction_id=prediction_id)
-    except Exception as e:
-        messages.error(request, f"Error processing feedback: {str(e)}")
-        return redirect('prediction_history')
-
-
-@login_required
-def prediction_form(request):
-    """View for the prediction form"""
-    # Check if ML service is available
-    ml_service_available = health()
-    
-    if request.method == 'POST':
-        # Extract form data and convert to expected format
-        input_data = {}
-        
-        # Process each field in the form - convert strings to appropriate types
-        for key, value in request.POST.items():
-            if key in ['csrfmiddlewaretoken']:
-                continue
-                
-            # Convert boolean fields
-            if value.lower() == 'true':
-                input_data[key] = True
-            elif value.lower() == 'false':
-                input_data[key] = False
-            # Convert numeric fields
-            elif value and value.replace('.', '', 1).isdigit():
-                input_data[key] = float(value)
-            else:
-                input_data[key] = value
-        
-        try:
-            # Make prediction using client
-            prediction_result = predict(input_data, request=request)
-            
-            # Get settlement value from the correct key
-            settlement_value = prediction_result.get('settlement_value', 0)
-            
-            # Automatically save the prediction
-            prediction = Prediction(
-                user=request.user,
-                input_data=input_data,
-                result=prediction_result,
-                settlement_value=settlement_value
-            )
-            prediction.save()
-            
-            # Render the result page with the prediction ID
-            return render(request, 'prediction_result.html', {
-                'prediction': prediction_result,
-                'input_data': input_data,
-                'prediction_id': prediction.id
-            })
-            
-        except Exception as e:
-            # Log the error
-            print(f"Prediction error: {str(e)}")
-            
-            # Render the form again with an error message
-            return render(request, 'prediction_form.html', {
-                'error_message': f"Error making prediction: {str(e)}",
-                'ml_service_available': False
-            })
-    
-    # Render the initial form
-    return render(request, 'prediction_form.html', {
-        'ml_service_available': ml_service_available
-    })
-
-# Registration view function
 def register_view(request):
+    """Registration view function"""
     if request.method == 'POST':
         name = request.POST.get('name')
         email = request.POST.get('email')
@@ -263,18 +91,18 @@ def register_view(request):
         
         # Basic validation
         if not all([name, email, password, confirm_password]):
-            return render(request, 'register.html', {'error_message': 'All fields are required'})
+            return render(request, 'auth/register.html', {'error_message': 'All fields are required'})
         
         if password != confirm_password:
-            return render(request, 'register.html', {'error_message': 'Passwords do not match'})
+            return render(request, 'auth/register.html', {'error_message': 'Passwords do not match'})
         
         # Check password strength
         if len(password) < 8:
-            return render(request, 'register.html', {'error_message': 'Password must be at least 8 characters long'})
+            return render(request, 'auth/register.html', {'error_message': 'Password must be at least 8 characters long'})
         
         # Check if email already exists
         if User.objects.filter(email=email).exists():
-            return render(request, 'register.html', {'error_message': 'Email is already registered'})
+            return render(request, 'auth/register.html', {'error_message': 'Email is already registered'})
         
         # Create new user
         try:
@@ -287,56 +115,19 @@ def register_view(request):
             # Redirect to home page or display success message
             return redirect('home')
         except Exception as e:
-            return render(request, 'register.html', {'error_message': f'Registration error: {str(e)}'})
+            return render(request, 'auth/register.html', {'error_message': f'Registration error: {str(e)}'})
     
-    return render(request, 'register.html')
+    return render(request, 'auth/register.html')
 
-## Rendering Dashboard
-@login_required
-def dashboard(request):
-    user = request.user
-    # Base context with user info
-    context = {
-        'user': user,
-        'role': user.role,
-    }
-    if user.role == 'ADMIN':
-        # Add admin-specific data
-        context.update({
-            'total_users': User.objects.count(),
-            'recent_registrations': User.objects.order_by('-date_joined')[:5]
-        })
-    elif user.role == 'FINANCE_TEAM':
-        # Add finance team-specific data
-        context.update({
-            'pending_invoices': Invoice.objects.filter(status='Pending').count(),
-            'recent_payments': Invoice.objects.filter(status='Paid').order_by('-updated_at')[:5]
-        })
-    elif user.role == 'AI_ENGINEER':
-        # Add AI engineer-specific data
-        context.update({
-            'model_status': 'Active',  
-            'recent_predictions': 145  
-        })
-    else:
-        # Add regular user-specific data
-        user_invoices = Invoice.objects.filter(user=user)
-        context.update({
-            'total_predictions': 0,  # Would come from your prediction model
-            'invoices': user_invoices
-        })
-    
-    return render(request, 'dashboard.html', context)
-
-# In your login_view function in views.py
 def login_view(request):
+    """Login view function"""
     if request.method == 'POST':
         email = request.POST.get('email')
         password = request.POST.get('password')
         
         # Basic validation
         if not all([email, password]):
-            return render(request, 'login.html', {'error_message': 'Email and password are required'})
+            return render(request, 'auth/login.html', {'error_message': 'Email and password are required'})
         
         # Authenticate user
         user = authenticate(request, email=email, password=password)
@@ -374,12 +165,12 @@ def login_view(request):
             
             return response
         else:
-            return render(request, 'login.html', {'error_message': 'Invalid email or password'})
+            return render(request, 'auth/login.html', {'error_message': 'Invalid email or password'})
     
-    return render(request, 'login.html')
+    return render(request, 'auth/login.html')
 
-## Logout View Function
 def logout_view(request):
+    """Logout view function"""
     # Django Logout 
     logout(request)
     
@@ -392,9 +183,8 @@ def logout_view(request):
     
     return response
 
-# Password Reset Mechanism Just use Email and FullName in this case but 
-# IRL use email and token based password reset. Security Vulns 
 def password_reset(request):
+    """Password Reset Mechanism using Email and FullName"""
     if request.method == 'POST':
         email = request.POST.get('email')
         full_name = request.POST.get('full_name')
@@ -403,17 +193,17 @@ def password_reset(request):
         
         # Basic validation
         if not all([email, full_name, new_password, confirm_password]):
-            return render(request, 'password_reset.html', {
+            return render(request, 'auth/password_reset.html', {
                 'error_message': 'All fields are required'
             })
         
         if new_password != confirm_password:
-            return render(request, 'password_reset.html', {
+            return render(request, 'auth/password_reset.html', {
                 'error_message': 'Passwords do not match'
             })
         
         if len(new_password) < 8:
-            return render(request, 'password_reset.html', {
+            return render(request, 'auth/password_reset.html', {
                 'error_message': 'Password must be at least 8 characters long'
             })
         
@@ -423,7 +213,7 @@ def password_reset(request):
             
             # Verify full name
             if user.name != full_name:
-                return render(request, 'password_reset.html', {
+                return render(request, 'auth/password_reset.html', {
                     'error_message': 'The information you provided does not match our records'
                 })
             
@@ -431,21 +221,90 @@ def password_reset(request):
             user.set_password(new_password)
             user.save()
             
-            return render(request, 'password_reset.html', {
+            return render(request, 'auth/password_reset.html', {
                 'success_message': 'Your password has been reset successfully. You can now log in with your new password.'
             })
             
         except User.DoesNotExist:
             # For security, don't reveal that the user doesn't exist
-            return render(request, 'password_reset.html', {
+            return render(request, 'auth/password_reset.html', {
                 'error_message': 'The information you provided does not match our records'
             })
     
-    return render(request, 'password_reset.html')
+    return render(request, 'auth/password_reset.html')
+
+def refresh_token_view(request):
+    """Handle refresh token to get a new access token"""
+    refresh_token = request.COOKIES.get('refresh_token')
+    if not refresh_token:
+        return JsonResponse({'error': 'Refresh token not found'}, status=401)
+    
+    try:
+        refresh = RefreshToken(refresh_token)
+        access_token = str(refresh.access_token)
+        
+        response = JsonResponse({'success': True})
+        response.set_cookie(
+            key='access_token',
+            value=access_token,
+            httponly=True,
+            secure=settings.COOKIE_SECURE,  # Environment-aware
+            samesite='Lax',
+            max_age=3600
+        )
+        
+        return response
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=401)
+
+#########################################################################
+# DASHBOARD VIEWS
+#########################################################################
+
+@login_required
+def dashboard(request):
+    """Main dashboard view"""
+    user = request.user
+    # Base context with user info
+    context = {
+        'user': user,
+        'role': user.role,
+    }
+    if user.role == 'ADMIN':
+        # Add admin-specific data
+        context.update({
+            'total_users': User.objects.count(),
+            'recent_registrations': User.objects.order_by('-date_joined')[:5]
+        })
+    elif user.role == 'FINANCE_TEAM':
+        # Add finance team-specific data
+        context.update({
+            'pending_invoices': Invoice.objects.filter(status='Pending').count(),
+            'recent_payments': Invoice.objects.filter(status='Paid').order_by('-updated_at')[:5]
+        })
+    elif user.role == 'AI_ENGINEER':
+        # Add AI engineer-specific data
+        context.update({
+            'model_status': 'Active',  
+            'recent_predictions': 145  
+        })
+    else:
+        # Add regular user-specific data
+        user_invoices = Invoice.objects.filter(user=user)
+        context.update({
+            'total_predictions': 0,  # Would come from your prediction model
+            'invoices': user_invoices
+        })
+    
+    return render(request, 'dashboard/dashboard.html', context)
+
+#########################################################################
+# USER MANAGEMENT VIEWS (ADMIN)
+#########################################################################
 
 @login_required
 def user_management(request):
-    """View for the user management page (admin only)"""
+    """View for user management page (admin only)"""
     # Check if user is admin
     if request.user.role != Role.ADMIN:
         messages.error(request, "Access denied. Admin privileges required.")
@@ -454,7 +313,7 @@ def user_management(request):
     # Get all users
     users = User.objects.all().order_by('name')
     
-    return render(request, 'user_management.html', {'users': users})
+    return render(request, 'dashboard/user_management.html', {'users': users})
 
 @login_required
 def add_user(request):
@@ -600,11 +459,316 @@ def delete_user(request, user_id):
     
     return redirect('user_management')
 
+#########################################################################
+# PREDICTION VIEWS - USER
+#########################################################################
+
+@login_required
+def prediction_form(request):
+    """View for the prediction form"""
+    # Check if ML service is available
+    ml_service_available = health()
+    
+    if request.method == 'POST':
+        # Extract form data and convert to expected format
+        input_data = {}
+        
+        # Process each field in the form - convert strings to appropriate types
+        for key, value in request.POST.items():
+            if key in ['csrfmiddlewaretoken']:
+                continue
+                
+            # Convert boolean fields
+            if value.lower() == 'true':
+                input_data[key] = True
+            elif value.lower() == 'false':
+                input_data[key] = False
+            # Convert numeric fields
+            elif value and value.replace('.', '', 1).isdigit():
+                input_data[key] = float(value)
+            else:
+                input_data[key] = value
+        
+        try:
+            # Make prediction using client
+            prediction_result = predict(input_data, request=request)
+            
+            # Get settlement value from the correct key
+            settlement_value = prediction_result.get('settlement_value', 0)
+            
+            # Automatically save the prediction
+            prediction = Prediction(
+                user=request.user,
+                input_data=input_data,
+                result=prediction_result,
+                settlement_value=settlement_value
+            )
+            prediction.save()
+            
+            # Render the result page with the prediction ID
+            return render(request, 'predictions/prediction_result.html', {
+                'prediction': prediction_result,
+                'input_data': input_data,
+                'prediction_id': prediction.id
+            })
+            
+        except Exception as e:
+            # Log the error
+            print(f"Prediction error: {str(e)}")
+            
+            # Render the form again with an error message
+            return render(request, 'predictions/prediction_form.html', {
+                'error_message': f"Error making prediction: {str(e)}",
+                'ml_service_available': False
+            })
+    
+    # Render the initial form
+    return render(request, 'predictions/prediction_form.html', {
+        'ml_service_available': ml_service_available
+    })
+
+@login_required
+def prediction_history(request):
+    """View for user's prediction history"""
+    # Get the user's predictions
+    predictions = Prediction.objects.filter(user=request.user)
+    
+    return render(request, 'predictions/prediction_history.html', {
+        'predictions': predictions
+    })
+
+@login_required
+def prediction_detail(request, prediction_id):
+    """View for detailed prediction information"""
+    try:
+        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
+        
+        return render(request, 'predictions/prediction_detail.html', {
+            'prediction': prediction,
+            'input_data': prediction.input_data,
+            'result': prediction.result
+        })
+    except Prediction.DoesNotExist:
+        messages.error(request, "Prediction not found or you don't have permission to access it.")
+        return redirect('prediction_history')
+
+@login_required
+def prediction_feedback(request, prediction_id):
+    """View for providing feedback on a prediction"""
+    try:
+        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
+        
+        # Check if feedback has already been provided
+        if prediction.is_reasonable is not None:
+            messages.warning(request, "Feedback has already been provided for this prediction.")
+            return redirect('prediction_detail', prediction_id=prediction.id)
+        
+        if request.method == 'POST':
+            is_reasonable = request.POST.get('is_reasonable') == 'yes'
+            
+            prediction.is_reasonable = is_reasonable
+            prediction.feedback_date = timezone.now()
+
+            if not is_reasonable:
+                proposed_settlement = request.POST.get('proposed_settlement')
+                adjustment_rationale = request.POST.get('adjustment_rationale')
+                
+                if not proposed_settlement or not adjustment_rationale:
+                    messages.error(request, "Please provide both a proposed settlement value and rationale.")
+                    return render(request, 'predictions/prediction_feedback.html', {'prediction': prediction})
+                
+                prediction.proposed_settlement = float(proposed_settlement)
+                prediction.adjustment_rationale = adjustment_rationale
+                prediction.needs_review = True
+                
+                messages.info(request, "Your feedback has been recorded. This case has been flagged for supervisor review.")
+            else:
+                messages.success(request, "Thank you for confirming the settlement value.")
+            
+            prediction.save()
+            return redirect('prediction_history')
+        
+        return render(request, 'predictions/prediction_feedback.html', {
+            'prediction': prediction,
+            'input_data': prediction.input_data,
+            'result': prediction.result
+        })
+        
+    except Prediction.DoesNotExist:
+        messages.error(request, "Prediction not found or you don't have permission to access it.")
+        return redirect('prediction_history')
+
+@login_required
+def submit_prediction_feedback(request):
+    """Handle submission of feedback on a prediction"""
+    if request.method != 'POST':
+        return HttpResponseBadRequest("Invalid request method")
+    
+    prediction_id = request.POST.get('prediction_id')
+    is_reasonable = request.POST.get('is_reasonable') == 'yes'
+    
+    try:
+        prediction = Prediction.objects.get(id=prediction_id, user=request.user)
+        
+        # Update the prediction with feedback
+        prediction.is_reasonable = is_reasonable
+        prediction.feedback_date = timezone.now()
+        
+        if not is_reasonable:
+            proposed_settlement = request.POST.get('proposed_settlement')
+            adjustment_rationale = request.POST.get('adjustment_rationale')
+            
+            if not proposed_settlement or not adjustment_rationale:
+                messages.error(request, "Please provide both a proposed settlement value and rationale.")
+                return redirect('prediction_result', prediction_id=prediction_id)
+            
+            prediction.proposed_settlement = float(proposed_settlement)
+            prediction.adjustment_rationale = adjustment_rationale
+            prediction.needs_review = True
+            
+            messages.info(request, "Your feedback has been recorded. This case has been flagged for supervisor review.")
+        else:
+            messages.success(request, "Thank you for confirming the settlement value.")
+        
+        prediction.save()
+        
+        # Redirect to prediction history
+        return redirect('prediction_history')
+        
+    except Prediction.DoesNotExist:
+        messages.error(request, "Prediction not found or you don't have permission to access it.")
+        return redirect('dashboard')
+    except ValueError:
+        messages.error(request, "Invalid proposed settlement value.")
+        return redirect('prediction_result', prediction_id=prediction_id)
+    except Exception as e:
+        messages.error(request, f"Error processing feedback: {str(e)}")
+        return redirect('prediction_history')
+
+#########################################################################
+# PREDICTION VIEWS - AI ENGINEER
+#########################################################################
+
+@login_required
+def review_predictions(request):
+    """View for AI Engineers to review all user predictions"""
+    # Check if user is AI Engineer or Admin
+    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
+        messages.error(request, "Access denied. AI Engineer privileges required.")
+        return redirect('dashboard')
+    
+    # Handle marking prediction as checked
+    if request.method == 'POST' and 'prediction_id' in request.POST:
+        prediction_id = request.POST.get('prediction_id')
+        try:
+            prediction = Prediction.objects.get(id=prediction_id)
+            
+            # Toggle the checked status
+            prediction.is_checked = not prediction.is_checked
+            
+            # If we're checking it, also clear the needs_review flag
+            if prediction.is_checked and prediction.needs_review:
+                prediction.needs_review = False
+                
+            prediction.save()
+            
+            if prediction.is_checked:
+                messages.success(request, f"Prediction #{prediction_id} marked as checked.")
+            else:
+                messages.info(request, f"Prediction #{prediction_id} unmarked.")
+            
+            return redirect('review_predictions')
+        except Prediction.DoesNotExist:
+            messages.error(request, "Prediction not found.")
+    
+    # Get filter parameters
+    status_filter = request.GET.get('status', '')
+    
+    # Get all predictions, ordered by newest first
+    predictions = Prediction.objects.all().select_related('user').order_by('-timestamp')
+    
+    # Apply filters
+    if status_filter == 'checked':
+        predictions = predictions.filter(is_checked=True)
+    elif status_filter == 'unchecked':
+        predictions = predictions.filter(is_checked=False)
+    elif status_filter == 'disputed':
+        predictions = predictions.filter(is_reasonable=False)
+    
+    # Pagination
+    paginator = Paginator(predictions, 20)  # Show 20 predictions per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'predictions/review_predictions.html', {
+        'page_obj': page_obj,
+        'total_predictions': predictions.count(),
+        'checked_count': predictions.filter(is_checked=True).count(),
+        'unchecked_count': predictions.filter(is_checked=False).count(),
+        'disputed_count': predictions.filter(is_reasonable=False).count(),
+        'status_filter': status_filter,
+    })
+
+@login_required
+def aiengineer_prediction_detail(request, prediction_id):
+    """View for AI Engineers to see detailed prediction information"""
+    # Check if user is AI Engineer or Admin
+    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
+        messages.error(request, "Access denied. AI Engineer privileges required.")
+        return redirect('dashboard')
+    
+    try:
+        prediction = Prediction.objects.get(id=prediction_id)
+        
+        # Handle marking prediction as checked
+        if request.method == 'POST' and 'mark_checked' in request.POST:
+            prediction.is_checked = True
+            if prediction.needs_review:
+                prediction.needs_review = False
+            prediction.save()
+            messages.success(request, f"Prediction #{prediction_id} marked as checked.")
+            return redirect('aiengineer_prediction_detail', prediction_id=prediction_id)
+        
+        return render(request, 'predictions/aiengineer_prediction_detail.html', {
+            'prediction': prediction,
+            'input_data': prediction.input_data,
+            'result': prediction.result,
+            'user': prediction.user  # Pass user info to template
+        })
+    except Prediction.DoesNotExist:
+        messages.error(request, "Prediction not found.")
+        return redirect('review_predictions')
+
+#########################################################################
+# INVOICE VIEWS - USER
+#########################################################################
+
 @login_required
 def user_invoices(request):
     """View for displaying the logged-in user's invoices."""
     invoices = Invoice.objects.filter(user=request.user).order_by('-issued_date')
-    return render(request, 'user_invoices.html', {'invoices': invoices})
+    return render(request, 'invoices/user_invoices.html', {'invoices': invoices})
+
+@login_required
+def invoice_detail(request, invoice_id):
+    """View for displaying the details of a single invoice."""
+    try:
+        invoice = Invoice.objects.get(id=invoice_id, user=request.user)
+        
+        # If there's a payment intent, check its status
+        if invoice.stripe_payment_intent_id and invoice.status == 'Pending':
+            payment_status = verify_intent(invoice.stripe_payment_intent_id)
+            
+            if payment_status == 'succeeded':
+                invoice.status = 'Paid'
+                invoice.save()
+                messages.success(request, "Good news! Your payment has been confirmed.")
+        
+        return render(request, 'invoices/invoice_details.html', {'invoice': invoice})
+    
+    except Invoice.DoesNotExist:
+        messages.error(request, "Invoice not found or you do not have permission to access it.")
+        return redirect('user_invoices')
 
 @login_required
 def download_invoice_pdf(request, invoice_id):
@@ -631,8 +795,11 @@ def download_invoice_pdf(request, invoice_id):
             return redirect('finance_invoice_list')
         else:
             return redirect('user_invoices')
-    
-## Creating a Stripe Payment Session for the Invoices
+
+#########################################################################
+# PAYMENT PROCESSING VIEWS
+#########################################################################
+
 @login_required
 def create_payment_session(request, invoice_id):
     """Redirect the logged-in user to the Stripe payment page for their unpaid invoice."""
@@ -728,27 +895,6 @@ def payment_cancel_view(request):
         messages.error(request, "Invoice not found or you do not have permission to access it.")
         return redirect('user_invoices')
 
-@login_required
-def invoice_detail(request, invoice_id):
-    """View for displaying the details of a single invoice."""
-    try:
-        invoice = Invoice.objects.get(id=invoice_id, user=request.user)
-        
-        # If there's a payment intent, check its status
-        if invoice.stripe_payment_intent_id and invoice.status == 'Pending':
-            payment_status = verify_intent(invoice.stripe_payment_intent_id)
-            
-            if payment_status == 'succeeded':
-                invoice.status = 'Paid'
-                invoice.save()
-                messages.success(request, "Good news! Your payment has been confirmed.")
-        
-        return render(request, 'invoice_detail.html', {'invoice': invoice})
-    
-    except Invoice.DoesNotExist:
-        messages.error(request, "Invoice not found or you do not have permission to access it.")
-        return redirect('user_invoices')
-
 @csrf_exempt
 def stripe_webhook(request):
     """Handle Stripe webhooks for automatic payment status updates."""
@@ -787,29 +933,9 @@ def stripe_webhook(request):
     # Return a response to acknowledge receipt of the event
     return HttpResponse(status=200)
 
-## Handles Refresh Token Views
-def refresh_token_view(request):
-    refresh_token = request.COOKIES.get('refresh_token')
-    if not refresh_token:
-        return JsonResponse({'error': 'Refresh token not found'}, status=401)
-    
-    try:
-        refresh = RefreshToken(refresh_token)
-        access_token = str(refresh.access_token)
-        
-        response = JsonResponse({'success': True})
-        response.set_cookie(
-            key='access_token',
-            value=access_token,
-            httponly=True,
-            secure=settings.COOKIE_SECURE,  # Environment-aware
-            samesite='Lax',
-            max_age=3600
-        )
-        
-        return response
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=401)
+#########################################################################
+# INVOICE VIEWS - FINANCE TEAM
+#########################################################################
 
 @login_required
 def finance_invoice_list(request):
@@ -848,7 +974,7 @@ def finance_invoice_list(request):
     except EmptyPage:
         invoices = paginator.page(paginator.num_pages)
     
-    return render(request, 'invoice_list.html', {
+    return render(request, 'invoices/invoice_list.html', {
         'invoices': invoices
     })
 
@@ -875,7 +1001,7 @@ def finance_invoice_create(request):
             # Validate required fields
             if not all([user_id, amount, due_date, status]):
                 messages.error(request, "All fields are required.")
-                return render(request, 'finance/invoice_form.html', {'users': users})
+                return render(request, 'invoices/invoice_form.html', {'users': users})
             
             # Create invoice
             invoice = Invoice(
@@ -896,7 +1022,7 @@ def finance_invoice_create(request):
     # Default due date (30 days from now)
     default_due_date = (timezone.now() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
     
-    return render(request, 'invoice_form.html', {
+    return render(request, 'invoices/invoice_form.html', {
         'users': users,
         'default_due_date': default_due_date
     })
@@ -929,7 +1055,7 @@ def finance_invoice_edit(request, invoice_id):
                     messages.error(request, "All fields are required.")
                     # Add default_due_date for template
                     default_due_date = (timezone.now() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
-                    return render(request, 'invoice_form.html', {
+                    return render(request, 'invoices/invoice_form.html', {
                         'invoice': invoice, 
                         'users': users,
                         'default_due_date': default_due_date
@@ -945,7 +1071,7 @@ def finance_invoice_edit(request, invoice_id):
         
         # Add default_due_date for GET requests as well
         default_due_date = (timezone.now() + timedelta(days=30)).strftime('%Y-%m-%dT%H:%M')
-        return render(request, 'invoice_form.html', {
+        return render(request, 'invoices/invoice_form.html', {
             'invoice': invoice,
             'users': users,
             'default_due_date': default_due_date
@@ -965,7 +1091,7 @@ def finance_invoice_detail(request, invoice_id):
     
     try:
         invoice = Invoice.objects.get(id=invoice_id)
-        return render(request, 'invoice_findetail.html', {'invoice': invoice})
+        return render(request, 'invoices/invoice_findetail.html', {'invoice': invoice})
         
     except Invoice.DoesNotExist:
         messages.error(request, "Invoice not found.")
@@ -1024,8 +1150,11 @@ def finance_invoice_verify_payment(request, invoice_id):
     except Invoice.DoesNotExist:
         messages.error(request, "Invoice not found.")
         return redirect('finance_invoice_list')
-    
-## View for ML Model Management (AI ENGINEERS)
+
+#########################################################################
+# ML MODEL MANAGEMENT VIEWS
+#########################################################################
+
 @login_required
 def model_management(request):
     """View for AI Engineers to manage ML models"""
@@ -1047,9 +1176,9 @@ def model_management(request):
             messages.error(request, "Please provide all required fields: model file, name, and type.")
             return redirect('model_management')
         
-        # Validate file is .pkl
-        if not model_file.name.endswith('.pkl'):
-            messages.error(request, "Only .pkl files are allowed.")
+        # Validate file is .pkl or .h5
+        if not model_file.name.endswith(('.pkl', '.h5')):
+            messages.error(request, "Only .pkl and .h5 files are allowed.")
             return redirect('model_management')
 
         requires_scaling = 'requires_scaling' in request.POST
@@ -1069,22 +1198,23 @@ def model_management(request):
         # If set as active, copy to FastAPI directory
         if set_active:
             try:
-                # Generate destination filename
-                dest_filename = f"active_model.pkl"
+                # Generate destination filename with the same extension as the uploaded file
+                file_extension = os.path.splitext(model_file.name)[1]
+                dest_filename = f"active_model{file_extension}"
                 
                 # Get source path
                 src_path = model.file.path
                 
                 # Define FastAPI directory path
                 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                fastapi_dir = os.path.join(base_dir, 'fastapi')
+                fastapi_dir = os.path.join(base_dir, 'FastAPI')
                 
                 # Create the directory if it doesn't exist
                 if not os.path.exists(fastapi_dir):
                     os.makedirs(fastapi_dir)
                 
                 # Set destination path
-                dest_path = os.path.join(fastapi_dir, "active_model.pkl")
+                dest_path = os.path.join(fastapi_dir, dest_filename)
                 
                 # Copy the file
                 shutil.copy2(src_path, dest_path)
@@ -1095,6 +1225,7 @@ def model_management(request):
                     "description": model.description,
                     "model_type": model.model_type,
                     "requires_scaling": model.requires_scaling,
+                    "file_type": file_extension[1:],  # Remove the dot
                     "last_updated": datetime.now().isoformat()
                 }
                 
@@ -1143,12 +1274,11 @@ def model_management(request):
             print(f"Error checking file existence: {str(e)}")
             model.file_exists = False
     
-    return render(request, 'model_management.html', {
+    return render(request, 'models/model_management.html', {
         'models': models,
         'active_model': active_model
     })
 
-# Function to set a model as active
 @login_required
 def set_model_active(request, model_id):
     """AJAX view to set a model as active"""
@@ -1165,7 +1295,9 @@ def set_model_active(request, model_id):
         
         # Copy model file to FastAPI directory with a generic name
         try:
-            dest_filename = f"active_model.pkl"
+            # Get file extension and build destination filename
+            file_extension = os.path.splitext(model.file.name)[1]
+            dest_filename = f"active_model{file_extension}"
             
             # Get source path
             src_path = model.file.path
@@ -1190,6 +1322,7 @@ def set_model_active(request, model_id):
                 "description": model.description,
                 "model_type": model.model_type,
                 "requires_scaling": model.requires_scaling,
+                "file_type": file_extension[1:],  # Remove the dot
                 "last_updated": datetime.now().isoformat()
             }
 
@@ -1216,8 +1349,7 @@ def set_model_active(request, model_id):
         error_msg = f"General error: {str(e)}, type: {type(e).__name__}"
         print(error_msg)
         return JsonResponse({"success": False, "error": str(e)})
-    
-# Function to delete an uploaded ml model
+
 @login_required
 def delete_model(request, model_id):
     """AJAX view to delete a model"""
@@ -1273,94 +1405,3 @@ def delete_model(request, model_id):
         error_msg = f"Error deleting model: {str(e)}"
         print(error_msg)
         return JsonResponse({"success": False, "error": error_msg})
-
-# View for AI Engineers to review all user prediction history
-@login_required
-def review_predictions(request):
-    """View for AI Engineers to review all user predictions"""
-    # Check if user is AI Engineer or Admin
-    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
-        messages.error(request, "Access denied. AI Engineer privileges required.")
-        return redirect('dashboard')
-    
-    # Handle marking prediction as checked
-    if request.method == 'POST' and 'prediction_id' in request.POST:
-        prediction_id = request.POST.get('prediction_id')
-        try:
-            prediction = Prediction.objects.get(id=prediction_id)
-            
-            # Toggle the checked status
-            prediction.is_checked = not prediction.is_checked
-            
-            # If we're checking it, also clear the needs_review flag
-            if prediction.is_checked and prediction.needs_review:
-                prediction.needs_review = False
-                
-            prediction.save()
-            
-            if prediction.is_checked:
-                messages.success(request, f"Prediction #{prediction_id} marked as checked.")
-            else:
-                messages.info(request, f"Prediction #{prediction_id} unmarked.")
-            
-            return redirect('review_predictions')
-        except Prediction.DoesNotExist:
-            messages.error(request, "Prediction not found.")
-    
-    # Get filter parameters
-    status_filter = request.GET.get('status', '')
-    
-    # Get all predictions, ordered by newest first
-    predictions = Prediction.objects.all().select_related('user').order_by('-timestamp')
-    
-    # Apply filters
-    if status_filter == 'checked':
-        predictions = predictions.filter(is_checked=True)
-    elif status_filter == 'unchecked':
-        predictions = predictions.filter(is_checked=False)
-    elif status_filter == 'disputed':
-        predictions = predictions.filter(is_reasonable=False)
-    
-    # Pagination
-    paginator = Paginator(predictions, 20)  # Show 20 predictions per page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'review_predictions.html', {
-        'page_obj': page_obj,
-        'total_predictions': predictions.count(),
-        'checked_count': predictions.filter(is_checked=True).count(),
-        'unchecked_count': predictions.filter(is_checked=False).count(),
-        'disputed_count': predictions.filter(is_reasonable=False).count(),
-        'status_filter': status_filter,
-    })
-
-@login_required
-def aiengineer_prediction_detail(request, prediction_id):
-    """View for AI Engineers to see detailed prediction information"""
-    # Check if user is AI Engineer or Admin
-    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
-        messages.error(request, "Access denied. AI Engineer privileges required.")
-        return redirect('dashboard')
-    
-    try:
-        prediction = Prediction.objects.get(id=prediction_id)
-        
-        # Handle marking prediction as checked
-        if request.method == 'POST' and 'mark_checked' in request.POST:
-            prediction.is_checked = True
-            if prediction.needs_review:
-                prediction.needs_review = False
-            prediction.save()
-            messages.success(request, f"Prediction #{prediction_id} marked as checked.")
-            return redirect('aiengineer_prediction_detail', prediction_id=prediction_id)
-        
-        return render(request, 'aiengineer_prediction_detail.html', {
-            'prediction': prediction,
-            'input_data': prediction.input_data,
-            'result': prediction.result,
-            'user': prediction.user  # Pass user info to template
-        })
-    except Prediction.DoesNotExist:
-        messages.error(request, "Prediction not found.")
-        return redirect('review_predictions')

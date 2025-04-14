@@ -1,0 +1,136 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}MLAAS - Prediction Detail{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="text-primary">Prediction Details</h1>
+            <p class="lead">Detailed information about your prediction from {{ prediction.timestamp|date:"F j, Y, g:i a" }}</p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Settlement Prediction</h3>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-8 offset-md-2 text-center">
+                    <h2 class="display-4 text-primary">${{ prediction.settlement_value|floatformat:2 }}</h2>
+                    <div class="mt-2 mb-4">
+                        {% with confidence_value=result.confidence %}
+                        <span class="badge rounded-pill 
+                            {% if confidence_value >= 80 %}bg-success{% elif confidence_value >= 65 %}bg-primary{% elif confidence_value >= 50 %}bg-info{% elif confidence_value >= 35 %}bg-warning{% else %}bg-danger{% endif %} 
+                            p-2" style="font-size: 1.1rem;">
+                            Confidence: {{ result.confidence }}%
+                        </span>
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feedback Status -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Feedback Status</h5>
+                </div>
+                <div class="card-body">
+                    {% if prediction.is_reasonable == True %}
+                        <div class="alert alert-success">
+                            <strong>Accepted:</strong> You confirmed this settlement value as reasonable on {{ prediction.feedback_date|date:"F j, Y" }}.
+                        </div>
+                    {% elif prediction.is_reasonable == False %}
+                        <div class="alert alert-warning">
+                            <strong>Disputed:</strong> You indicated this settlement value needed adjustment on {{ prediction.feedback_date|date:"F j, Y" }}.
+                            <hr>
+                            <p><strong>Your Proposed Settlement:</strong> ${{ prediction.proposed_settlement|floatformat:2 }}</p>
+                            <p><strong>Your Rationale:</strong> {{ prediction.adjustment_rationale }}</p>
+                            <p><strong>Status:</strong> 
+                                {% if prediction.needs_review %}
+                                <span class="badge bg-warning text-dark">Pending Supervisor Review</span>
+                                {% else %}
+                                <span class="badge bg-success">Reviewed</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-secondary">
+                            <strong>Pending:</strong> You haven't provided feedback on this prediction yet.
+                            <a href="{% url 'prediction_feedback' prediction.id %}" class="btn btn-sm btn-primary mt-2">Provide Feedback</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Input Summary -->
+            <h4 class="mt-4 mb-3">Input Data</h4>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Accident Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Accident Type:</strong> {{ input_data.AccidentType }}</p>
+                            <p><strong>Accident Description:</strong> {{ input_data.Accident_Description }}</p>
+                            <p><strong>Weather Conditions:</strong> {{ input_data.Weather_Conditions }}</p>
+                            <p><strong>Days Since Accident:</strong> {{ input_data.Days_Between_Accident_And_Claim }}</p>
+                            <p><strong>Police Report:</strong> {{ input_data.Police_Report_Filed|yesno:"Yes,No" }}</p>
+                            <p><strong>Witness Present:</strong> {{ input_data.Witness_Present|yesno:"Yes,No" }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Injury Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Injury Description:</strong> {{ input_data.Injury_Description }}</p>
+                            <p><strong>Dominant Injury:</strong> {{ input_data.Dominant_injury }}</p>
+                            <p><strong>Whiplash:</strong> {{ input_data.Whiplash|yesno:"Yes,No" }}</p>
+                            <p><strong>Psychological Injury:</strong> {{ input_data.Minor_Psychological_Injury|yesno:"Yes,No" }}</p>
+                            <p><strong>Injury Prognosis:</strong> {{ input_data.Injury_Prognosis }} months</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Vehicle Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Vehicle Type:</strong> {{ input_data.Vehicle_Type }}</p>
+                            <p><strong>Vehicle Age:</strong> {{ input_data.Vehicle_Age }} years</p>
+                            <p><strong>Number of Passengers:</strong> {{ input_data.Number_of_Passengers }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Personal Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Driver Age:</strong> {{ input_data.Driver_Age }}</p>
+                            <p><strong>Gender:</strong> {{ input_data.Gender }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'prediction_history' %}" class="btn btn-secondary">Back to History</a>
+                <a href="{% url 'prediction_form' %}" class="btn btn-primary">Make New Prediction</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

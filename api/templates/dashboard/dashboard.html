@@ -75,7 +75,7 @@
                     <div class="card-body">
                         <h5 class="card-title">Analytics</h5>
                         <p class="card-text">View system-wide analytics and statistics.</p>
-                        <a href="#" class="btn btn-primary">View Analytics</a>
+                        <a href="{% url 'admin_analytics' %}" class="btn btn-primary">View Analytics</a>
                     </div>
                 </div>
             </div>
@@ -182,7 +182,7 @@
         </div>
     </div>
 
-    <!-- Recent activity section - can be customized by role too -->
+    <!-- Recent activity section - now dynamic -->
     <div class="row mt-4">
         <div class="col-12">
             <div class="card">
@@ -190,54 +190,30 @@
                     <h5 class="mb-0">Recent Activity</h5>
                 </div>
                 <div class="card-body">
-                    {% if user.role == 'Admin' %}
-                        <!-- Admin-specific activity -->
+                    {% if recent_activities %}
                         <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                New user registered
-                                <span class="badge bg-primary rounded-pill">2 hours ago</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                System settings updated
-                                <span class="badge bg-primary rounded-pill">Yesterday</span>
-                            </li>
-                        </ul>
-                    {% elif user.role == 'Finance Team' %}
-                        <!-- Finance team-specific activity -->
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                New payment received
-                                <span class="badge bg-primary rounded-pill">1 hour ago</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Invoice #12345 created
-                                <span class="badge bg-primary rounded-pill">Yesterday</span>
-                            </li>
-                        </ul>
-                    {% elif user.role == 'AI Engineer' %}
-                        <!-- AI engineer-specific activity -->
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Model retraining completed
-                                <span class="badge bg-primary rounded-pill">3 hours ago</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                New data batch processed
-                                <span class="badge bg-primary rounded-pill">Yesterday</span>
-                            </li>
+                            {% for activity in recent_activities %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {% if activity.type == 'user_registration' %}
+                                        <i class="bi bi-person-plus me-2 text-primary"></i>
+                                    {% elif activity.type == 'invoice' %}
+                                        <i class="bi bi-receipt me-2 text-success"></i>
+                                    {% elif activity.type == 'prediction' %}
+                                        <i class="bi bi-graph-up me-2 text-info"></i>
+                                    {% elif activity.type == 'model' %}
+                                        <i class="bi bi-cpu me-2 text-warning"></i>
+                                    {% elif activity.type == 'api_error' %}
+                                        <i class="bi bi-exclamation-triangle me-2 text-danger"></i>
+                                    {% else %}
+                                        <i class="bi bi-activity me-2"></i>
+                                    {% endif %}
+                                    {{ activity.content }}
+                                    <span class="badge bg-primary rounded-pill">{{ activity.time_ago }}</span>
+                                </li>
+                            {% endfor %}
                         </ul>
                     {% else %}
-                        <!-- Regular user activity -->
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Prediction #54321 completed
-                                <span class="badge bg-primary rounded-pill">4 hours ago</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Account settings updated
-                                <span class="badge bg-primary rounded-pill">2 days ago</span>
-                            </li>
-                        </ul>
+                        <p class="text-center text-muted">No recent activity to display</p>
                     {% endif %}
                 </div>
             </div>

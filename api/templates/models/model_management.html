@@ -357,15 +357,21 @@
             // Reset error message
             errorContainer.style.display = 'none';
             
-            // Send AJAX request
-            fetch(`/set-model-active/${modelId}/`, {
+            // Send AJAX request with performance monitoring
+            const startTime = performance.now();
+            const apiEndpoint = `/set-model-active/${modelId}/`;
+            
+            fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
                     'Content-Type': 'application/json'
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                logApiMetrics(apiEndpoint, startTime, response);
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     // Reload page to show updated status
@@ -435,14 +441,20 @@
             this.disabled = true;
             this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...';
             
-            fetch(`/delete-model/${modelIdToDelete}/`, {
+            const startTime = performance.now();
+            const apiEndpoint = `/delete-model/${modelIdToDelete}/`;
+            
+            fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
                     'Content-Type': 'application/json'
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                logApiMetrics(apiEndpoint, startTime, response);
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     deleteModelModal.hide();
@@ -476,6 +488,13 @@
                 }
             }
             return cookieValue;
+        }
+
+        // Function to log API metrics
+        function logApiMetrics(endpoint, startTime, response) {
+            const endTime = performance.now();
+            const duration = endTime - startTime;
+            console.log(`API Call to ${endpoint} took ${duration.toFixed(2)} ms. Status: ${response.status}`);
         }
     });
 </script>

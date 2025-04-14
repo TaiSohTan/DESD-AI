@@ -16,7 +16,11 @@ class UserManager(BaseUserManager):
         return user
     
     def create_superuser(self, email, name, password=None):
-        return self.create_user(email, name, password, role='Admin')
+        user = self.create_user(email, name, password, role='Admin')
+        user.is_staff = True
+        user.is_superuser = True
+        user.save(using=self._db)
+        return user
     
 # Role Choices 
 class Role(models.TextChoices):
@@ -34,6 +38,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=Role.choices,
         default=Role.END_USER
     )
+    is_staff = models.BooleanField(default=False)
     member_since = models.DateTimeField(auto_now_add=True)
     
     objects = UserManager()
@@ -45,6 +50,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         # First user gets Admin role
         if not User.objects.exists():  
             self.role = Role.ADMIN
+        
+        # Set is_staff=True for Admin users
+        if self.role == Role.ADMIN:
+            self.is_staff = True
+            
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -108,3 +118,20 @@ class MLModel(models.Model):
         if self.is_active:
             MLModel.objects.filter(is_active=True).exclude(id=self.id).update(is_active=False)
         super().save(*args, **kwargs)
+
+# API Metrics Model for System Health Tracking
+class APIMetrics(models.Model):
+    """Model for tracking API performance metrics"""
+    endpoint = models.CharField(max_length=255, help_text="API endpoint path")
+    response_time = models.FloatField(help_text="Response time in milliseconds")
+    status_code = models.IntegerField(help_text="HTTP status code")
+    error = models.BooleanField(default=False, help_text="Whether this request resulted in an error")
+    timestamp = models.DateTimeField(auto_now_add=True, help_text="When this metric was recorded")
+    
+    def __str__(self):
+        return f"{self.endpoint} - {self.status_code} - {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+    
+    class Meta:
+        verbose_name = "API Metric"
+        verbose_name_plural = "API Metrics"
+        ordering = ["-timestamp"]

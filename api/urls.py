@@ -30,6 +30,9 @@ from .views import (
     
     # Payment views
     payment_success_view, payment_cancel_view,
+    
+    # Admin analytics views
+    admin_analytics, log_api_metrics, export_analytics_data,
 )
 
 # Group URLs by functional area for better organization
@@ -92,4 +95,9 @@ urlpatterns = [
     path('finance/invoices/<int:invoice_id>/delete/', finance_invoice_delete, name='finance_invoice_delete'),
     path('finance/invoices/<int:invoice_id>/verify-payment/', finance_invoice_verify_payment, 
          name='finance_invoice_verify_payment'),
+         
+    # Admin Analytics URLs - Changed from 'admin/analytics/' to 'analytics/' to avoid conflict
+    path('analytics/', admin_analytics, name='admin_analytics'),
+    path('analytics/export/', export_analytics_data, name='export_analytics_data'),
+    path('api/log-metrics/', log_api_metrics, name='log_api_metrics'),
 ]

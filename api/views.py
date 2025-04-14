@@ -1,17 +1,28 @@
-from django.shortcuts import render, redirect
-# Create your views here.
-from django.http import HttpResponse,response,JsonResponse,HttpResponseBadRequest
-from .models import Invoice,Role,Prediction, User, MLModel
-from utils.pdf_generator import generate_invoice_pdf
-# Python standard library
-import re
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse, HttpResponse
+from django.contrib import messages
+from django.utils import timezone
+from django.urls import reverse
+from django.db.models import Count, Sum, Q
+from django.core.paginator import Paginator
+from django.conf import settings
+
+from .models import User, Prediction, MLModel, Invoice, APIMetrics
+from .serializers import PredictionSerializer, InvoiceSerializer
+from utils.ml_api_client import MLApiClient
+from utils.pdf_generator import generate_prediction_pdf
+
+import uuid
+import json
 import logging
+
+from django.http import HttpResponse,response,JsonResponse,HttpResponseBadRequest
+from .models import Invoice,Role,Prediction, User, MLModel, APIMetrics
+from utils.pdf_generator import generate_invoice_pdf
+import re
 import stripe
 from datetime import timedelta
-
-# Django Library Imports
-from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -20,28 +31,17 @@ from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-
-# Django Rest Framework (DRF) Imports
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-
-# Project imports - Models
 from .models import User, Invoice, Role, Prediction
 from .permissions import IsFinanceTeam, IsAdminUser
-
-# Project imports - Utilities
 from utils.ml_api_client import predict, health
 from django.utils import timezone
 import re
 from utils.pdf_generator import generate_invoice_pdf
 from utils.stripe_payment import create_checkout, verify_intent
-
-# Configure logger
-logger = logging.getLogger(__name__)
-
-# Imports for AIEngineer Functionality
 import json
 import os
 import joblib
@@ -49,6 +49,10 @@ import shutil
 from django.contrib import messages
 from datetime import datetime, timedelta
 from django.core.paginator import Paginator
+import json
+from datetime import timedelta, datetime
+from django.db.models import Count, Sum, Avg, F, ExpressionWrapper, fields
+from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
 
 #########################################################################
 # GENERAL PAGE VIEWS
@@ -270,31 +274,149 @@ def dashboard(request):
         'user': user,
         'role': user.role,
     }
-    if user.role == 'ADMIN':
+    
+    # Add recent activities based on user role
+    recent_activities = []
+    
+    if user.role == 'Admin':
         # Add admin-specific data
         context.update({
             'total_users': User.objects.count(),
-            'recent_registrations': User.objects.order_by('-date_joined')[:5]
+            'recent_registrations': User.objects.order_by('-member_since')[:5]
         })
-    elif user.role == 'FINANCE_TEAM':
+        
+        # Recent users (new registrations)
+        recent_users = User.objects.order_by('-member_since')[:5]
+        for user_item in recent_users:
+            recent_activities.append({
+                'type': 'user_registration',
+                'content': f"New user registered: {user_item.name}",
+                'timestamp': user_item.member_since,
+            })
+        
+        # Recent invoices
+        recent_invoices = Invoice.objects.order_by('-issued_date')[:5]
+        for invoice in recent_invoices:
+            recent_activities.append({
+                'type': 'invoice',
+                'content': f"Invoice #{invoice.id} ({invoice.status}) for {invoice.user.name}",
+                'timestamp': invoice.issued_date,
+            })
+            
+        # Recent API metrics (errors)
+        recent_api_errors = APIMetrics.objects.filter(error=True).order_by('-timestamp')[:5]
+        for error in recent_api_errors:
+            recent_activities.append({
+                'type': 'api_error',
+                'content': f"API Error: {error.endpoint} (Status {error.status_code})",
+                'timestamp': error.timestamp,
+            })
+            
+    elif user.role == 'Finance Team':
         # Add finance team-specific data
         context.update({
             'pending_invoices': Invoice.objects.filter(status='Pending').count(),
-            'recent_payments': Invoice.objects.filter(status='Paid').order_by('-updated_at')[:5]
+            'recent_payments': Invoice.objects.filter(status='Paid').order_by('-issued_date')[:5]
         })
-    elif user.role == 'AI_ENGINEER':
+        
+        # Recent invoices with payment status
+        recent_invoices = Invoice.objects.order_by('-issued_date')[:10]
+        for invoice in recent_invoices:
+            action = "paid" if invoice.status == "Paid" else "created"
+            recent_activities.append({
+                'type': 'invoice',
+                'content': f"Invoice #{invoice.id} {action} for {invoice.user.name} (${invoice.amount})",
+                'timestamp': invoice.issued_date,
+            })
+            
+    elif user.role == 'AI Engineer':
         # Add AI engineer-specific data
+        recent_models = MLModel.objects.order_by('-uploaded_at')[:5]
+        
+        # Get count of unchecked predictions
+        unchecked_count = Prediction.objects.filter(is_checked=False).count()
+        
         context.update({
-            'model_status': 'Active',  
-            'recent_predictions': 145  
+            'model_count': MLModel.objects.count(),
+            'unchecked_predictions': unchecked_count
         })
+        
+        # Recent model uploads
+        for model in recent_models:
+            status = "active" if model.is_active else "inactive"
+            recent_activities.append({
+                'type': 'model',
+                'content': f"Model {model.name} ({model.model_type}) uploaded - {status}",
+                'timestamp': model.uploaded_at,
+            })
+            
+        # Recent predictions that need review
+        recent_predictions = Prediction.objects.filter(is_checked=False).order_by('-timestamp')[:5]
+        for pred in recent_predictions:
+            recent_activities.append({
+                'type': 'prediction',
+                'content': f"Prediction #{pred.id} by {pred.user.name} needs review",
+                'timestamp': pred.timestamp,
+            })
+            
     else:
         # Add regular user-specific data
-        user_invoices = Invoice.objects.filter(user=user)
+        user_predictions = Prediction.objects.filter(user=user).order_by('-timestamp')[:5]
+        user_invoices = Invoice.objects.filter(user=user).order_by('-issued_date')[:5]
+        
         context.update({
-            'total_predictions': 0,  # Would come from your prediction model
-            'invoices': user_invoices
+            'prediction_count': Prediction.objects.filter(user=user).count(),
+            'invoices_count': Invoice.objects.filter(user=user).count()
         })
+        
+        # User's recent predictions
+        for pred in user_predictions:
+            recent_activities.append({
+                'type': 'prediction',
+                'content': f"Prediction #{pred.id} - Settlement: ${pred.settlement_value}",
+                'timestamp': pred.timestamp,
+            })
+            
+        # User's recent invoices
+        for invoice in user_invoices:
+            recent_activities.append({
+                'type': 'invoice',
+                'content': f"Invoice #{invoice.id} ({invoice.status}) - ${invoice.amount}",
+                'timestamp': invoice.issued_date,
+            })
+    
+    # Sort all activities by timestamp (newest first)
+    recent_activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    # Add timestamp display for all activities
+    for activity in recent_activities:
+        # Calculate time difference
+        time_diff = timezone.now() - activity['timestamp']
+        days = time_diff.days
+        
+        if days == 0:
+            hours = time_diff.seconds // 3600
+            if hours == 0:
+                minutes = time_diff.seconds // 60
+                activity['time_ago'] = f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+            else:
+                activity['time_ago'] = f"{hours} hour{'s' if hours != 1 else ''} ago"
+        elif days == 1:
+            activity['time_ago'] = "Yesterday"
+        else:
+            activity['time_ago'] = f"{days} days ago"
+    
+    # Add debug for checking activity count
+    print(f"DEBUG: Generated {len(recent_activities)} activities for user {user.name} with role {user.role}")
+    if recent_activities:
+        print(f"DEBUG: First activity: {recent_activities[0]['content']} from {recent_activities[0]['timestamp']}")
+    
+    # Limit to top 10 activities
+    context['recent_activities'] = recent_activities[:10]
+    
+    # Debug context to ensure we're passing activities to template
+    print(f"DEBUG: Context has recent_activities: {'recent_activities' in context}")
+    print(f"DEBUG: Number of activities in context: {len(context.get('recent_activities', []))}")
     
     return render(request, 'dashboard/dashboard.html', context)
 
@@ -1405,3 +1527,452 @@ def delete_model(request, model_id):
         error_msg = f"Error deleting model: {str(e)}"
         print(error_msg)
         return JsonResponse({"success": False, "error": error_msg})
+
+#########################################################################
+# ADMIN ANALYTICS VIEWS
+#########################################################################
+@login_required
+def admin_analytics(request):
+    """Admin analytics dashboard view"""
+    if request.user.role != Role.ADMIN:
+        messages.error(request, "Access denied. Admin privileges required.")
+        return redirect('dashboard')
+    
+    # Get date range filter from query params, default to last 30 days
+    date_range = request.GET.get('date_range', '30')
+    
+    if date_range == 'all':
+        start_date = None
+    else:
+        try:
+            days = int(date_range)
+            start_date = timezone.now() - timedelta(days=days)
+        except ValueError:
+            start_date = timezone.now() - timedelta(days=30)
+    
+    # Process date for filtering
+    filter_kwargs = {}
+    if start_date:
+        filter_kwargs = {'timestamp__gte': start_date}
+    
+    # Get analytics data - Functions are defined below, so we need to move this after the function definitions
+    # We'll return the rendered response from get_analytics_data instead
+    return get_analytics_data(request, start_date, date_range)
+
+def get_analytics_data(request, start_date, date_range):
+    """Get analytics data and render the template"""
+    # Get analytics data
+    user_metrics = get_user_metrics(start_date)
+    financial_metrics = get_financial_metrics(start_date)
+    system_health = get_system_health_metrics(start_date)
+    prediction_metrics = get_prediction_metrics(start_date)
+    
+    context = {
+        'user_metrics': user_metrics,
+        'financial_metrics': financial_metrics,
+        'system_health': system_health,
+        'prediction_metrics': prediction_metrics,
+        'date_range': date_range,
+    }    
+    return render(request, 'analytics/dashboard.html', context)
+
+def get_user_metrics(start_date=None):
+    """Generate user engagement metrics"""
+    # Filter based on date if provided
+    user_filter = {}
+    if start_date:
+        user_filter = {'member_since__gte': start_date}
+    
+    prediction_filter = {}
+    if start_date:
+        prediction_filter = {'timestamp__gte': start_date}
+    
+    # User registration over time
+    if start_date and (timezone.now() - start_date).days < 60:
+        # For shorter periods, group by day
+        users_over_time = User.objects.filter(**user_filter) \
+            .annotate(date=TruncDay('member_since')) \
+            .values('date') \
+            .annotate(count=Count('id')) \
+            .order_by('date')
+    else:
+        # For longer periods, group by month
+        users_over_time = User.objects.filter(**user_filter) \
+            .annotate(date=TruncMonth('member_since')) \
+            .values('date') \
+            .annotate(count=Count('id')) \
+            .order_by('date')
+    
+    # User distribution by role
+    role_distribution = User.objects.values('role') \
+        .annotate(count=Count('id')) \
+        .order_by('role')
+    
+    # Active users (users who made predictions)
+    active_users = Prediction.objects.filter(**prediction_filter) \
+        .values('user') \
+        .distinct() \
+        .count()
+    
+    # User engagement (predictions per user)
+    user_predictions = Prediction.objects.filter(**prediction_filter) \
+        .values('user__name', 'user__email') \
+        .annotate(prediction_count=Count('id')) \
+        .order_by('-prediction_count')[:10]  # Top 10 active users
+    
+    # Format data for charts
+    user_growth_labels = [entry['date'].strftime('%Y-%m-%d') for entry in users_over_time]
+    user_growth_data = [entry['count'] for entry in users_over_time]
+    user_growth_cumulative = []
+    cumulative = 0
+    for count in user_growth_data:
+        cumulative += count
+        user_growth_cumulative.append(cumulative)
+    
+    role_labels = [entry['role'] for entry in role_distribution]
+    role_data = [entry['count'] for entry in role_distribution]
+    
+    # Package data for the template
+    return {
+        'total_users': User.objects.count(),
+        'new_users': User.objects.filter(**user_filter).count(),
+        'active_users': active_users,
+        'inactive_users': User.objects.count() - active_users,
+        'user_growth_labels': json.dumps(user_growth_labels),
+        'user_growth_data': json.dumps(user_growth_cumulative),
+        'role_labels': json.dumps(role_labels),
+        'role_data': json.dumps(role_data),
+        'top_users': user_predictions
+    }
+
+def get_financial_metrics(start_date=None):
+    """Generate financial analytics data"""
+    # Filter based on date if provided
+    invoice_filter = {}
+    if start_date:
+        invoice_filter = {'issued_date__gte': start_date}
+    
+    # All invoices within the period
+    invoices = Invoice.objects.filter(**invoice_filter)
+    
+    # Monthly revenue data
+    if start_date and (timezone.now() - start_date).days < 60:
+        # For shorter periods, group by day
+        revenue_over_time = invoices.filter(status='Paid') \
+            .annotate(date=TruncDay('issued_date')) \
+            .values('date') \
+            .annotate(total=Sum('amount')) \
+            .order_by('date')
+    else:
+        # For longer periods, group by month
+        revenue_over_time = invoices.filter(status='Paid') \
+            .annotate(date=TruncMonth('issued_date')) \
+            .values('date') \
+            .annotate(total=Sum('amount')) \
+            .order_by('date')
+    
+    # Payment status distribution
+    payment_status = {
+        'Paid': invoices.filter(status='Paid').count(),
+        'Pending': invoices.filter(status='Pending').count()
+    }
+    
+    # Average invoice amount over time
+    avg_invoice = invoices.aggregate(Avg('amount'))
+    
+    # Format data for charts
+    revenue_labels = [entry['date'].strftime('%Y-%m-%d') for entry in revenue_over_time]
+    revenue_data = [float(entry['total']) for entry in revenue_over_time]
+    
+    payment_labels = list(payment_status.keys())
+    payment_data = list(payment_status.values())
+    
+    # Calculate revenue metrics
+    total_revenue = invoices.filter(status='Paid').aggregate(Sum('amount'))['amount__sum'] or 0
+    pending_revenue = invoices.filter(status='Pending').aggregate(Sum('amount'))['amount__sum'] or 0
+    
+    return {
+        'total_revenue': total_revenue,
+        'pending_revenue': pending_revenue,
+        'total_invoices': invoices.count(),
+        'avg_invoice_amount': avg_invoice['amount__avg'] if avg_invoice['amount__avg'] else 0,
+        'revenue_labels': json.dumps(revenue_labels),
+        'revenue_data': json.dumps(revenue_data),
+        'payment_labels': json.dumps(payment_labels),
+        'payment_data': json.dumps(payment_data)
+    }
+
+def get_system_health_metrics(start_date=None):
+    """Generate system health metrics data"""
+    # Filter based on date if provided
+    metrics_filter = {}
+    if start_date:
+        metrics_filter = {'timestamp__gte': start_date}
+    
+    try:
+        # API response time data
+        api_metrics = APIMetrics.objects.filter(**metrics_filter)
+        
+        if not api_metrics.exists():
+            # If no API metrics, return placeholder data
+            return {
+                'avg_response_time': 0,
+                'error_rate': 0,
+                'status_codes': {},
+                'response_time_labels': json.dumps([]),
+                'response_time_data': json.dumps([])
+            }
+        
+        # Response time over time
+        if start_date and (timezone.now() - start_date).days < 7:
+            # For shorter periods, group by hour
+            response_time_data = api_metrics \
+                .annotate(hour=TruncDay('timestamp')) \
+                .values('hour') \
+                .annotate(avg_time=Avg('response_time')) \
+                .order_by('hour')
+        else:
+            # For longer periods, group by day
+            response_time_data = api_metrics \
+                .annotate(day=TruncDay('timestamp')) \
+                .values('day') \
+                .annotate(avg_time=Avg('response_time')) \
+                .order_by('day')
+        
+        # Error rate
+        total_requests = api_metrics.count()
+        error_requests = api_metrics.filter(error=True).count()
+        error_rate = (error_requests / total_requests * 100) if total_requests > 0 else 0
+        
+        # Status code distribution
+        status_codes = api_metrics.values('status_code') \
+            .annotate(count=Count('id')) \
+            .order_by('status_code')
+        
+        # Format data for charts
+        if start_date and (timezone.now() - start_date).days < 7:
+            time_labels = [entry['hour'].strftime('%Y-%m-%d %H:00') for entry in response_time_data]
+        else:
+            time_labels = [entry['day'].strftime('%Y-%m-%d') for entry in response_time_data]
+            
+        time_data = [float(entry['avg_time']) for entry in response_time_data]
+        
+        # Average response time
+        avg_response_time = api_metrics.aggregate(Avg('response_time'))['response_time__avg'] or 0
+        
+        status_summary = {}
+        for entry in status_codes:
+            status_code = entry['status_code']
+            count = entry['count']
+            if 200 <= status_code < 300:
+                key = '2xx Success'
+            elif 300 <= status_code < 400:
+                key = '3xx Redirection'
+            elif 400 <= status_code < 500:
+                key = '4xx Client Error'
+            elif 500 <= status_code < 600:
+                key = '5xx Server Error'
+            else:
+                key = 'Other'
+                
+            if key in status_summary:
+                status_summary[key] += count
+            else:
+                status_summary[key] = count
+        
+        return {
+            'avg_response_time': round(avg_response_time, 2),
+            'error_rate': round(error_rate, 2),
+            'status_codes': status_summary,
+            'status_code_labels': json.dumps(list(status_summary.keys())),
+            'status_code_data': json.dumps(list(status_summary.values())),
+            'response_time_labels': json.dumps(time_labels),
+            'response_time_data': json.dumps(time_data)
+        }
+    except Exception as e:
+        print(f"Error generating system health metrics: {str(e)}")
+        return {
+            'avg_response_time': 0,
+            'error_rate': 0,
+            'status_codes': {},
+            'response_time_labels': json.dumps([]),
+            'response_time_data': json.dumps([])
+        }
+
+def get_prediction_metrics(start_date=None):
+    """Generate prediction analytics data"""
+    # Filter based on date if provided
+    prediction_filter = {}
+    if start_date:
+        prediction_filter = {'timestamp__gte': start_date}
+    
+    predictions = Prediction.objects.filter(**prediction_filter)
+    
+    # Prediction volume over time
+    if start_date and (timezone.now() - start_date).days < 60:
+        # For shorter periods, group by day
+        predictions_over_time = predictions \
+            .annotate(date=TruncDay('timestamp')) \
+            .values('date') \
+            .annotate(count=Count('id')) \
+            .order_by('date')
+    else:
+        # For longer periods, group by month
+        predictions_over_time = predictions \
+            .annotate(date=TruncMonth('timestamp')) \
+            .values('date') \
+            .annotate(count=Count('id')) \
+            .order_by('date')
+    
+    # Prediction accuracy metrics
+    feedback_predictions = predictions.filter(is_reasonable__isnull=False)
+    accurate_predictions = feedback_predictions.filter(is_reasonable=True).count()
+    disputed_predictions = feedback_predictions.filter(is_reasonable=False).count()
+    needs_review = predictions.filter(needs_review=True).count()
+    
+    total_feedback = accurate_predictions + disputed_predictions
+    accuracy = (accurate_predictions / total_feedback * 100) if total_feedback > 0 else 0
+    
+    # Average settlement value
+    avg_settlement = predictions.aggregate(Avg('settlement_value'))['settlement_value__avg'] or 0
+    
+    # Format data for charts
+    prediction_labels = [entry['date'].strftime('%Y-%m-%d') for entry in predictions_over_time]
+    prediction_data = [entry['count'] for entry in predictions_over_time]
+    
+    # Accuracy over time
+    if feedback_predictions.exists():
+        accuracy_over_time = feedback_predictions \
+            .annotate(date=TruncMonth('timestamp')) \
+            .values('date') \
+            .annotate(
+                accurate=Count('id', filter=Q(is_reasonable=True)),
+                total=Count('id')
+            ).order_by('date')
+        
+        accuracy_labels = [entry['date'].strftime('%Y-%m-%d') for entry in accuracy_over_time]
+        accuracy_data = [
+            round(entry['accurate'] / entry['total'] * 100, 1) if entry['total'] > 0 else 0 
+            for entry in accuracy_over_time
+        ]
+    else:
+        accuracy_labels = []
+        accuracy_data = []
+    
+    return {
+        'total_predictions': predictions.count(),
+        'feedback_provided': total_feedback,
+        'accuracy_rate': round(accuracy, 2),
+        'disputed_predictions': disputed_predictions,
+        'needs_review': needs_review,
+        'avg_settlement': float(avg_settlement),
+        'prediction_labels': json.dumps(prediction_labels),
+        'prediction_data': json.dumps(prediction_data),
+        'accuracy_labels': json.dumps(accuracy_labels),
+        'accuracy_data': json.dumps(accuracy_data)
+    }
+
+@login_required
+def log_api_metrics(request):
+    """API endpoint to log metrics about API performance"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            
+            # Create new APIMetrics entry
+            APIMetrics.objects.create(
+                endpoint=data.get('endpoint', 'unknown'),
+                response_time=float(data.get('response_time', 0)),
+                status_code=int(data.get('status_code', 500)),
+                error=bool(data.get('error', False))
+            )
+            
+            return JsonResponse({"success": True})
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+    
+    return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+@login_required
+def export_analytics_data(request):
+    """Export analytics data as CSV for admins"""
+    if request.user.role != Role.ADMIN:
+        messages.error(request, "Access denied. Admin privileges required.")
+        return redirect('dashboard')
+    
+    import csv
+    
+    # Create the HttpResponse object with CSV header
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="analytics_export.csv"'
+    
+    # Create CSV writer
+    writer = csv.writer(response)
+    
+    # Determine the data type to export
+    export_type = request.GET.get('type', 'user')
+    
+    if export_type == 'user':
+        # User analytics export
+        writer.writerow(['User ID', 'Email', 'Name', 'Role', 'Member Since', 'Predictions Made'])
+        
+        users = User.objects.all().order_by('id')
+        for user in users:
+            writer.writerow([
+                user.id, 
+                user.email, 
+                user.name, 
+                user.role, 
+                user.member_since.strftime('%Y-%m-%d'),
+                Prediction.objects.filter(user=user).count()
+            ])
+            
+    elif export_type == 'financial':
+        # Financial analytics export
+        writer.writerow(['Invoice ID', 'User', 'Amount', 'Issued Date', 'Due Date', 'Status'])
+        
+        invoices = Invoice.objects.all().order_by('-issued_date')
+        for invoice in invoices:
+            writer.writerow([
+                invoice.id,
+                invoice.user.email,
+                float(invoice.amount),
+                invoice.issued_date.strftime('%Y-%m-%d'),
+                invoice.due_date.strftime('%Y-%m-%d'),
+                invoice.status
+            ])
+            
+    elif export_type == 'prediction':
+        # Prediction analytics export
+        writer.writerow(['Prediction ID', 'User', 'Timestamp', 'Settlement Value', 
+                         'Is Reasonable', 'Needs Review', 'Is Checked'])
+        
+        predictions = Prediction.objects.all().order_by('-timestamp')
+        for prediction in predictions:
+            writer.writerow([
+                prediction.id,
+                prediction.user.email,
+                prediction.timestamp.strftime('%Y-%m-%d %H:%M'),
+                float(prediction.settlement_value),
+                prediction.is_reasonable if prediction.is_reasonable is not None else 'No Feedback',
+                prediction.needs_review,
+                prediction.is_checked
+            ])
+            
+    elif export_type == 'system':
+        # System health analytics export
+        writer.writerow(['Metric ID', 'Endpoint', 'Response Time (ms)', 'Timestamp', 
+                         'Status Code', 'Error'])
+        
+        metrics = APIMetrics.objects.all().order_by('-timestamp')
+        for metric in metrics:
+            writer.writerow([
+                metric.id,
+                metric.endpoint,
+                metric.response_time,
+                metric.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                metric.status_code,
+                metric.error
+            ])
+    
+    return response

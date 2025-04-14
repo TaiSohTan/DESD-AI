@@ -22,7 +22,10 @@ from auth import get_current_user
 app = FastAPI(
     title="Settlement Value Prediction API",
     description="API for predicting settlement values based on claim details",
-    version="1.2.0"
+    version="1.2.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 ## Add CORS Middleware to allow responses from Django

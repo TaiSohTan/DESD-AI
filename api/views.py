@@ -582,6 +582,119 @@ def delete_user(request, user_id):
     return redirect('user_management')
 
 #########################################################################
+# USER PROFILE VIEW
+#########################################################################
+
+@login_required
+def user_profile(request):
+    """View for user profile page"""
+    user = request.user
+    
+    # Get user's prediction statistics
+    prediction_count = Prediction.objects.filter(user=user).count()
+    recent_predictions = Prediction.objects.filter(user=user).order_by('-timestamp')[:5]
+    
+    # Get user's invoice statistics
+    invoice_count = Invoice.objects.filter(user=user).count()
+    pending_invoices = Invoice.objects.filter(user=user, status='Pending').count()
+    
+    # Calculate user's membership duration
+    membership_duration = timezone.now() - user.member_since
+    membership_days = membership_duration.days
+    
+    context = {
+        'user': user,
+        'prediction_count': prediction_count,
+        'recent_predictions': recent_predictions,
+        'invoice_count': invoice_count,
+        'pending_invoices': pending_invoices,
+        'membership_days': membership_days,
+    }
+    
+    return render(request, 'auth/profile.html', context)
+
+@login_required
+def account_settings(request):
+    """View for account settings page"""
+    user = request.user
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'update_profile':
+            # Update basic profile information
+            name = request.POST.get('name')
+            email = request.POST.get('email')
+            
+            # Validate input
+            if not all([name, email]):
+                messages.error(request, "Name and email are required.")
+                return redirect('account_settings')
+            
+            # Check if email exists and belongs to another user
+            if User.objects.filter(email=email).exclude(id=user.id).exists():
+                messages.error(request, "This email is already in use by another account.")
+                return redirect('account_settings')
+            
+            # Update user
+            try:
+                user.name = name
+                user.email = email
+                user.save()
+                messages.success(request, "Profile updated successfully.")
+            except Exception as e:
+                messages.error(request, f"Error updating profile: {str(e)}")
+            
+        elif action == 'change_password':
+            # Change password
+            current_password = request.POST.get('current_password')
+            new_password = request.POST.get('new_password')
+            confirm_password = request.POST.get('confirm_password')
+            
+            # Validate input
+            if not all([current_password, new_password, confirm_password]):
+                messages.error(request, "All password fields are required.")
+                return redirect('account_settings')
+            
+            if new_password != confirm_password:
+                messages.error(request, "New passwords don't match.")
+                return redirect('account_settings')
+            
+            if len(new_password) < 8:
+                messages.error(request, "Password must be at least 8 characters long.")
+                return redirect('account_settings')
+            
+            # Check current password
+            if not user.check_password(current_password):
+                messages.error(request, "Current password is incorrect.")
+                return redirect('account_settings')
+            
+            # Update password
+            try:
+                user.set_password(new_password)
+                user.save()
+                # Re-authenticate user to prevent logout
+                updated_user = authenticate(request, email=user.email, password=new_password)
+                if updated_user:
+                    login(request, updated_user)
+                messages.success(request, "Password changed successfully.")
+            except Exception as e:
+                messages.error(request, f"Error changing password: {str(e)}")
+        
+        elif action == 'notification_preferences':
+            # Update notification preferences (can be extended in the future)
+            email_notifications = request.POST.get('email_notifications') == 'on'
+            
+            # For now, just show a success message
+            messages.success(request, "Notification preferences updated successfully.")
+        
+        # Add other account settings actions as needed
+        
+        return redirect('account_settings')
+    
+    return render(request, 'auth/account_settings.html', {'user': user})
+
+#########################################################################
 # PREDICTION VIEWS - USER
 #########################################################################
 

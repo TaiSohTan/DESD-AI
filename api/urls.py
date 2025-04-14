@@ -7,7 +7,7 @@ from .views import (
     home, about, services, pricing, contact,
     
     # Authentication views
-    login_view, register_view, logout_view, password_reset, refresh_token_view, dashboard,
+    login_view, register_view, logout_view, password_reset, refresh_token_view, dashboard, user_profile, account_settings,
     
     # User management views
     user_management, add_user, edit_user, change_user_role, delete_user,
@@ -51,6 +51,8 @@ urlpatterns = [
     path('reset-password/', password_reset, name='password_reset'),
     path('refresh-token/', refresh_token_view, name='refresh_token'),
     path('dashboard/', dashboard, name='dashboard'),
+    path('profile/', user_profile, name='user_profile'),
+    path('settings/', account_settings, name='account_settings'),
     
     # User Management URLs
     path('user-management/', user_management, name='user_management'),

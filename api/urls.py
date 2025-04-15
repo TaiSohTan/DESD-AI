@@ -4,7 +4,7 @@ from django.conf import settings
 
 from .views import (
     # Static page views
-    home, about, services, pricing, contact,
+    home, about, services, pricing, contact, documentation, api_documentation, fastapi_documentation,
     
     # Authentication views
     login_view, register_view, logout_view, password_reset, refresh_token_view, dashboard, user_profile, account_settings,
@@ -42,6 +42,9 @@ urlpatterns = [
     path('about/', about, name='about'),
     path('services/', services, name='services'),
     path('pricing/', pricing, name='pricing'),
+    path('documentation/', documentation, name='documentation'),
+    path('api/', api_documentation, name='api_documentation'),
+    path('fastapi/', fastapi_documentation, name='fastapi_documentation'),
     path('contact/', contact, name='contact'),
     
     # Authentication URLs

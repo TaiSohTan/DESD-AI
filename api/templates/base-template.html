@@ -4,7 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}MLAAS - Insurance Prediction{% endblock %}</title>
+    <title>{% block title %}InsurIQ - Insurance Prediction{% endblock %}</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{% static 'images/favicon-96x96.png' %}">
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}">
+    <!-- Bootstrap and other stylesheets -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
@@ -42,10 +47,10 @@
                         {% endif %}
                         {% endblock %}
                     </ul>
-                    <a class="navbar-brand mx-auto">MLAAS</a>
+                    <a class="navbar-brand mx-auto">InsurIQ</a>
                     {% else %}
                     <!-- Navbar for non-authenticated users -->
-                    <a class="navbar-brand" href="{% url 'home' %}">MLAAS</a>
+                    <a class="navbar-brand" href="{% url 'home' %}">InsurIQ</a>
                     <ul class="navbar-nav me-auto">
                         {% block navbar_links_left_non_auth %}
                         <li class="nav-item">
@@ -124,15 +129,16 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-4 mb-4 mb-md-0">
-                    <a class="navbar-brand mb-3 d-block">MLAAS</a>
-                    <p class="text-muted">Machine Learning as a Service - Insurance Prediction Platform</p>
+                    <a class="navbar-brand mb-3 d-block">InsurIQ</a>
+                    <p class="text-muted">InsurIQ - Insurance Prediction Platform</p>
                 </div>
                 <div class="col-md-2 mb-4 mb-md-0">
                     <h5 class="mb-3">Resources</h5>
                     <ul class="nav flex-column">
-                        <li class="nav-item"><a href="#" class="nav-link px-0 text-muted">Documentation</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link px-0 text-muted">API</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link px-0 text-muted">Support</a></li>
+                        <li class="nav-item"><a href="{% url 'documentation' %}" class="nav-link px-0 text-muted">Documentation</a></li>
+                        <li class="nav-item"><a href="{% url 'api_documentation' %}" class="nav-link px-0 text-muted">API</a></li>
+                        <li class="nav-item"><a href="{% url 'fastapi_documentation' %}" class="nav-link px-0 text-muted">FastAPI</a></li>
+                        <li class="nav-item"><a href="{% url 'contact' %}" class="nav-link px-0 text-muted">Contact Us</a></li>
                     </ul>
                 </div>
                 <div class="col-md-4">
@@ -143,7 +149,7 @@
                         <a href="#" class="text-muted fs-5"><i class="bi bi-facebook"></i></a>
                         <a href="#" class="text-muted fs-5"><i class="bi bi-github"></i></a>
                     </div>
-                    <p class="text-muted">&copy; 2025 MLAAS Insurance Prediction</p>
+                    <p class="text-muted">&copy; 2025 InsurIQ Insurance Prediction</p>
                 </div>
             </div>
         </div>

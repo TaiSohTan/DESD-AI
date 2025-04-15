@@ -77,6 +77,18 @@ def pricing(request):
     """Pricing page view"""
     return render(request,'general/pricing.html')
 
+def documentation(request):
+    """Documentation page view"""
+    return render(request,'general/documentation.html')
+
+def api_documentation(request):
+    """API Documentation page view"""
+    return render(request,'general/api_documentation.html')
+
+def fastapi_documentation(request):
+    """FastAPI Documentation page view"""
+    return render(request,'general/fastapi_documentation.html')
+
 def contact(request):
     """Contact page view"""
     return render(request,'general/contact.html')
@@ -1228,7 +1240,7 @@ def finance_invoice_create(request):
         # Process form data
         try:
             user_id = request.POST.get('user')
-            description = request.POST.get('description', f'MLAAS Service Invoice')
+            description = request.POST.get('description', f'InsurIQ Service Invoice')
             amount = request.POST.get('amount')
             due_date = request.POST.get('due_date')
             status = request.POST.get('status')
@@ -1280,7 +1292,7 @@ def finance_invoice_edit(request, invoice_id):
             # Process form data
             try:
                 invoice.user_id = request.POST.get('user')
-                invoice.description = request.POST.get('description', f'MLAAS Service Invoice')
+                invoice.description = request.POST.get('description', f'InsurIQ Service Invoice')
                 invoice.amount = request.POST.get('amount')
                 invoice.due_date = request.POST.get('due_date')
                 invoice.status = request.POST.get('status')

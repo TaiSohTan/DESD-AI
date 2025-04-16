@@ -110,7 +110,7 @@ model_manager = ModelManager()
 
 # Load the serialized preprocessors
 standard_scaler = joblib.load('standard_scaler.pkl')
-target_encoder = joblib.load('target_encoder.pkl')
+#target_encoder = joblib.load('target_encoder.pkl')
 onehot_encoder = joblib.load('onehot_encoder.pkl')
 label_encoder = joblib.load('label_encoder.pkl')
 metadata = joblib.load('preprocessing_metadata.pkl')
@@ -121,39 +121,39 @@ print(f"Training reference data loaded successfully: {len(X_train_reference)} sa
 
 # Define request model with proper validation
 class PredictionRequest(BaseModel):
-    GeneralRest: float = Field(..., description="General rest value")
-    GeneralFixed: float = Field(..., description="General fixed value")
-    SpecialEarningsLoss: float = Field(..., description="Special earnings loss value")
+    General_Rest: float = Field(..., description="General rest value")
+    General_Fixed: float = Field(..., description="General fixed value")
+    Special_Earnings_Loss: float = Field(..., description="Special earnings loss value")
     Injury_Prognosis: float = Field(..., description="Injury prognosis in months")
-    SpecialTherapy: float = Field(..., description="Special therapy value")
-    SpecialAssetDamage: float = Field(..., description="Special asset damage value")
-    SpecialFixes: float = Field(..., description="Special fixes value")
-    SpecialUsageLoss: float = Field(..., description="Special usage loss value")
-    AccidentType: str = Field(..., description="Type of accident")
-    SpecialJourneyExpenses: float = Field(..., description="Special journey expenses")
+    Special_Therapy: float = Field(..., description="Special therapy value")
+    Special_Asset_Damage: float = Field(..., description="Special asset damage value")
+    Special_Fixes: float = Field(..., description="Special fixes value")
+    Special_Usage_Loss: float = Field(..., description="Special usage loss value")
+    Accident_Type: str = Field(..., description="Type of accident")
+    Special_Journey_Expenses: float = Field(..., description="Special journey expenses")
     Days_Between_Accident_And_Claim: float = Field(..., description="Days between accident and claim")
     Vehicle_Age: float = Field(..., description="Vehicle age in years")
     Driver_Age: float = Field(..., description="Driver age in years")
-    SpecialLoanerVehicle: float = Field(..., description="Special loaner vehicle value")
-    SpecialOverage: float = Field(..., description="Special overage value")
-    GeneralUplift: float = Field(..., description="General uplift value")
+    Special_Loaner_Vehicle: float = Field(..., description="Special loaner vehicle value")
+    Special_Overage: float = Field(..., description="Special overage value")
+    General_Uplift: float = Field(..., description="General uplift value")
     Accident_Description: str = Field(..., description="Description of accident")
     Exceptional_Circumstances: bool = Field(..., description="Whether there were exceptional circumstances")
     Minor_Psychological_Injury: bool = Field(..., description="Whether there was minor psychological injury")
     Injury_Description: str = Field(..., description="Description of injury")
-    SpecialHealthExpenses: float = Field(..., description="Health-related expenses")
-    SpecialAdditionalInjury: float = Field(..., description="Additional injury compensation")
-    SpecialMedications: float = Field(..., description="Medication expenses")
-    SpecialRehabilitation: float = Field(..., description="Rehabilitation costs")
-    SpecialTripCosts: float = Field(..., description="Trip costs")
-    Number_of_Passengers: float = Field(..., description="Number of passengers in vehicle")
+    Special_Health_Expenses: float = Field(..., description="Health-related expenses")
+    Special_Additional_Injury: float = Field(..., description="Additional injury compensation")
+    Special_Medications: float = Field(..., description="Medication expenses")
+    Special_Rehabilitation: float = Field(..., description="Rehabilitation costs")
+    Special_Trip_Costs: float = Field(..., description="Trip costs")
+    Number_Of_Passengers: float = Field(..., description="Number of passengers in vehicle")
     Whiplash: bool = Field(..., description="Whether whiplash occurred")
     Police_Report_Filed: bool = Field(..., description="Whether police report was filed")
     Witness_Present: bool = Field(..., description="Whether witnesses were present")
     Gender: str = Field(..., description="Gender of claimant")
     Vehicle_Type: str = Field(..., description="Type of vehicle")
     Weather_Conditions: str = Field(..., description="Weather conditions")
-    Dominant_injury: str = Field(..., description="Dominant injury area")
+    Dominant_Injury: str = Field(..., description="Dominant injury area")
 
 class PredictionResponse(BaseModel):
     settlement_value: float = Field(..., description="Predicted settlement value")
@@ -167,6 +167,7 @@ def preprocess_input(input_data):
     # Convert to dictionary
     data_dict = input_data.copy()
 
+    """
     # Create mapping between underscored and spaced field names
     field_mapping = {
         'Accident_Description': 'Accident Description',
@@ -189,10 +190,11 @@ def preprocess_input(input_data):
             print(f"Mapped {api_field} -> {model_field}")
         else:
             print(f"Warning: Missing field: {api_field}")
+    """
     
     # Apply target encoding from saved encoders
     target_encoder = {
-        'AccidentType': {
+        'Accident_Type': {
             'Other': 805.5464516129032,
             'Other side changed lanes and collided with clt\'s vehicle': 864.7134210526316,
             'Other side changed lanes on a roundabout colliding with clt\'s vehicle': 1075.8030263157896,
@@ -212,21 +214,21 @@ def preprocess_input(input_data):
             'Rear end - 3 car - Clt at front': 1457.1582653061225,
             'Rear end - Clt pushed into next vehicle': 1567.01
         },
-        'Accident Description': {
+        'Accident_Description': {
             'Hit a deer on the highway.': 1206.1765262076053,
             'Lost control on a snowy road.': 1214.5150043668123,
             'Rear-ended at a stoplight.': 1216.653168859649,
             'Side collision at an intersection.': 1218.5378302900108,
             'Swerved to avoid another vehicle.': 1235.4431296891746
         },
-        'Injury Description': {
+        'Injury_Description': {
             'Concussion and bruised ribs.': 1172.1275582685903,
             'Fractured arm and leg.': 1193.0538951695785,
             'Minor cuts and scrapes.': 1226.5536103896104,
             'Sprained ankle and wrist.': 1244.8258804695838,
             'Whiplash and minor bruises.': 1251.0179418103448
         },
-        'Dominant injury': {
+        'Dominant_Injury': {
             'Arms': 1192.95743993372,
             'Hips': 1218.5957589285713,
             'Legs': 1228.2536333052985,

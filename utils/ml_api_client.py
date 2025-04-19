@@ -38,6 +38,11 @@ class MLApiClient:
                 if isinstance(confidence_str, str):
                     confidence_str = confidence_str.strip('%')
                 response_data['confidence'] = float(confidence_str)
+
+            # Make sure explanation data is properly formatted if it exists
+            if 'explanation' in response_data and response_data['explanation']:
+                # The explanation data is already parsed JSON from the FastAPI response
+                print("Explanation data received")
             
             return response_data
         except requests.exceptions.RequestException as e:
@@ -56,6 +61,23 @@ class MLApiClient:
             print(f"ML API health check failed: {str(e)}")
             return False
 
+    def reload_models(self, request=None):
+        """Tell the FastAPI service to reload the active model"""
+        url = f"{self.base_url}/reload-models"
+        
+        headers = {"Content-Type": "application/json"}
+        
+        if request and request.COOKIES.get("access_token"):
+            headers['Authorization'] = f"Bearer {request.COOKIES.get('access_token')}"
+        
+        try:
+            response = requests.post(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error reloading FastAPI models: {str(e)}")
+            return {"success": False, "error": str(e)}
+
 # For backward compatibility, keeping the standalone functions
 def predict(data, request = None):
     """Legacy function that uses the MLApiClient class"""
@@ -66,3 +88,8 @@ def health():
     """Legacy function that uses the MLApiClient class"""
     client = MLApiClient()
     return client.health()
+
+def reload_models(request=None):
+    """Legacy function that uses the MLApiClient class"""
+    client = MLApiClient()
+    return client.reload_models(request)

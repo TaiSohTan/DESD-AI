@@ -6,7 +6,7 @@ import joblib
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends 
 from pydantic import BaseModel, Field, validator
-from typing import Dict, Any, Union, Optional
+from typing import Dict, List, Any, Union, Optional
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +14,10 @@ from sklearn.neighbors import NearestNeighbors
 import time
 from datetime import datetime
 import threading
+
+## XAI Service
+import fix_warnings  # Fix warning issues for SHAP
+from xai_service import ShapExplainer
 
 ## Authentication Utility
 from auth import get_current_user
@@ -64,11 +68,13 @@ class ModelManager:
             if current_size == self.last_file_size and current_mtime <= self.last_modified_time:
                 return True
                 
-            # File has changed, load the new model
-            with self.model_lock:
-                print(f"Loading model from {self.active_model_path} (modified at {datetime.fromtimestamp(current_mtime)})")
-                self.active_model = joblib.load(self.active_model_path)
-                self.last_modified_time = current_mtime
+            # Force a reload if size or mtime changed
+            if current_size != self.last_file_size or current_mtime != self.last_modified_time:
+                with self.model_lock:
+                    print(f"Loading model from {self.active_model_path} (modified at {datetime.fromtimestamp(current_mtime)})")
+                    self.active_model = joblib.load(self.active_model_path)
+                    self.last_modified_time = current_mtime
+                    self.last_file_size = current_size
                 
                 # Load model metadata if available
                 if os.path.exists(self.active_model_metadata_path):
@@ -100,6 +106,8 @@ class ModelManager:
             if self.active_model is None:
                 raise ValueError("No active model available")
             return self.active_model
+        
+        return self.model
     
     def requires_input_scaling(self):
         """Check if the current model requires input scaling"""
@@ -110,7 +118,6 @@ model_manager = ModelManager()
 
 # Load the serialized preprocessors
 standard_scaler = joblib.load('standard_scaler.pkl')
-#target_encoder = joblib.load('target_encoder.pkl')
 onehot_encoder = joblib.load('onehot_encoder.pkl')
 label_encoder = joblib.load('label_encoder.pkl')
 metadata = joblib.load('preprocessing_metadata.pkl')
@@ -160,6 +167,7 @@ class PredictionResponse(BaseModel):
     message: str = Field(..., description="Formatted prediction message")
     confidence: str = Field(..., description="Confidence level of the prediction")
     model_info: Dict[str, Any] = Field(..., description="Information about the model used")
+    explanation: Dict[str, Any] = Field(..., description="SHAP explanation for the prediction")
     
 # Preprocessing Function
 def preprocess_input(input_data):
@@ -284,6 +292,7 @@ def preprocess_input(input_data):
     
     return data_dict
 
+# Feature Scaling Function
 def scale_features(data_dict):
     """Apply standard scaling to all features if required by the model"""
     # Only apply scaling if the model requires it
@@ -320,7 +329,7 @@ def scale_features(data_dict):
         
     return data_dict
 
-
+# Confindence Score Function
 def calculate_confidence_percentage(model_input, model_type, n_neighbors=10):
 
     # Initialize and fit nearest neighbors model
@@ -371,7 +380,7 @@ async def health_check():
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_settlement(
     request: PredictionRequest,
-    model_type: str = "active",
+    model_type: str = "active",    
     current_user: dict = Depends(get_current_user)  # Add User Dependency
 ):
     try:
@@ -380,6 +389,11 @@ async def predict_settlement(
         # Get active model through the model manager
         try:
             model = model_manager.get_model()
+
+            explainer = ShapExplainer(
+                model=model,
+                feature_names=model.feature_names_in_ 
+            )
         except ValueError as e:
             raise HTTPException(status_code=500, detail=f"Model not available: {str(e)}")
 
@@ -427,7 +441,27 @@ async def predict_settlement(
 
         # Calculate confidence score using distance-based method
         confidence_score = calculate_confidence_percentage(model_input, model_type)
+        
+        # Print prediction results as debug message
+        print("\n===== PREDICTION RESULTS =====")
+        print(f"Predicted settlement value: £ {float(prediction):,.2f} (Confidence: {confidence_score}%)")
 
+        ##### XAI SHAP EXPLANATION #####
+        # Generate explanation 
+        explanation = None
+        try:
+            explanation = explainer.generate_explanation(model_input)
+        except Exception as e:
+            print(f"Error generating explanation: {str(e)}") # Don't fail the whole request if explanation fails
+            # Use a default empty explanation structure or None
+            explanation = {
+                "feature_importance_plot": "",
+                "waterfall_plot": "",
+                "top_features": [],
+                "base_value": 0.0,
+                "shap_values": []
+            }
+                    
         # Get model info for response
         model_info = {
             "type": getattr(model, "_estimator_type", "unknown"),
@@ -441,7 +475,8 @@ async def predict_settlement(
             settlement_value = rounded_settlement_value,
             message=f"£ {rounded_settlement_value:,.2f}",
             confidence=confidence_score,
-            model_info=model_info
+            model_info=model_info,
+            explanation=explanation
         )   
     
     except Exception as e:
@@ -514,6 +549,7 @@ async def update_reference_data(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         print(f"Error in update-reference-data: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
 
 
 if __name__ == "__main__":

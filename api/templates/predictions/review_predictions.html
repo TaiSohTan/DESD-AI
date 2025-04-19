@@ -104,7 +104,7 @@
                                     <td>{{ prediction.id }}</td>
                                     <td>{{ prediction.timestamp|date:"M d, Y" }}</td>
                                     <td>{{ prediction.user.name }}</td>
-                                    <td>${{ prediction.settlement_value|floatformat:2 }}</td>
+                                    <td>£{{ prediction.settlement_value|floatformat:2 }}</td>
                                     <td>
                                         {% if prediction.is_checked %}
                                             <span class="badge bg-success">Checked</span>

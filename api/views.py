@@ -756,7 +756,8 @@ def prediction_form(request):
             return render(request, 'predictions/prediction_result.html', {
                 'prediction': prediction_result,
                 'input_data': input_data,
-                'prediction_id': prediction.id
+                'prediction_id': prediction.id,
+                'explanation': prediction_result.get('explanation')
             })
             
         except Exception as e:
@@ -789,11 +790,23 @@ def prediction_detail(request, prediction_id):
     """View for detailed prediction information"""
     try:
         prediction = Prediction.objects.get(id=prediction_id, user=request.user)
+
+        # Extract explanation from result
+        explanation_dict = prediction.result.get('explanation', {}) if prediction.result else {}
+        
+        # Create an explanation context with all visualization components
+        explanation = {
+            'waterfall_plot': explanation_dict.get('waterfall_plot'),
+            'feature_importance_plot': explanation_dict.get('feature_importance_plot'),
+            'top_features': explanation_dict.get('top_features', []),
+            'base_value': explanation_dict.get('base_value')
+        }
         
         return render(request, 'predictions/prediction_detail.html', {
             'prediction': prediction,
             'input_data': prediction.input_data,
-            'result': prediction.result
+            'result': prediction.result,
+            'explanation': explanation
         })
     except Prediction.DoesNotExist:
         messages.error(request, "Prediction not found or you don't have permission to access it.")
@@ -966,6 +979,17 @@ def aiengineer_prediction_detail(request, prediction_id):
     
     try:
         prediction = Prediction.objects.get(id=prediction_id)
+
+        # Extract explanation from result
+        explanation_dict = prediction.result.get('explanation', {}) if prediction.result else {}
+        
+        # Create an explanation context with all visualization components
+        explanation = {
+            'waterfall_plot': explanation_dict.get('waterfall_plot'),
+            'feature_importance_plot': explanation_dict.get('feature_importance_plot'),
+            'top_features': explanation_dict.get('top_features', []),
+            'base_value': explanation_dict.get('base_value')
+        }
         
         # Handle marking prediction as checked
         if request.method == 'POST' and 'mark_checked' in request.POST:
@@ -980,6 +1004,7 @@ def aiengineer_prediction_detail(request, prediction_id):
             'prediction': prediction,
             'input_data': prediction.input_data,
             'result': prediction.result,
+            'explanation': explanation,
             'user': prediction.user  # Pass user info to template
         })
     except Prediction.DoesNotExist:
@@ -1579,6 +1604,22 @@ def set_model_active(request, model_id):
                 json.dump(metadata, f)
                 print(f"Metadata saved to {metadata_path}")
                 print(f"Metadata content: {metadata}")
+
+            # After copying the model and metadata, tell FastAPI to reload
+            try:
+                from utils.ml_api_client import MLApiClient
+                
+                # Get access token for the request
+                client = MLApiClient()
+                response = client.reload_models(request=request)
+                
+                if response.get('success'):
+                    print("FastAPI service reloaded model successfully")
+                else:
+                    print(f"FastAPI service failed to reload model: {response.get('error')}")
+                    
+            except Exception as reload_error:
+                print(f"Error notifying FastAPI service to reload model: {str(reload_error)}")
             
             return JsonResponse({
                 "success": True, 

@@ -1,0 +1,55 @@
+{% extends "base-template.html" %}
+{% load static %}
+{% block title %}InsurIQ - Insurance Settlement Prediction Platform{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-5">Welcome to InsurIQ!</h1>
+    <div class="row row-cols-1 row-cols-md-2 g-4">
+        <div class="col">
+            <a href="{% url 'about' %}" class="text-decoration-none text-dark">
+                <div class="card">
+                    <img src="{% static 'images/AboutUs.jpg' %}" class="card-img-top" alt="About Us">
+                    <div class="card-body">
+                    <h5 class="card-title">About Us</h5>
+                    <p class="card-text">We Are A Small Team Of Machine Learning and AI Students passionate about our small startup!</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'services' %}" class="text-decoration-none text-dark">
+                <div class="card">
+                    <img src="{% static 'images/OurServices.jpg' %}" class="card-img-top" alt="Our Services">
+                    <div class="card-body">
+                    <h5 class="card-title">Our Services</h5>
+                    <p class="card-text">Explains more about what functions our platform will be providing</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'pricing' %}" class="text-decoration-none text-dark">
+                <div class="card">
+                    <img src="{% static 'images/Pricing.jpg' %}" class="card-img-top" alt="Pricing">
+                    <div class="card-body">
+                    <h5 class="card-title">Pricing</h5>
+                    <p class="card-text">Small Subscription Fees to keep our startup going!</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col">
+            <a href="{% url 'contact' %}" class="text-decoration-none text-dark">
+                <div class="card">
+                    <img src="{% static 'images/ReachOut.jpg' %}" class="card-img-top" alt="Reach Out To Us">
+                    <div class="card-body">
+                    <h5 class="card-title">Reach Out To Us!</h5>
+                    <p class="card-text">Feel free to reach out to us for more information or a demo!</p>
+                    </div>
+                </div>
+                </div>
+            </a>
+      </div>
+</div>
+{% endblock %}

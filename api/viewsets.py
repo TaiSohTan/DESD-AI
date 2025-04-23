@@ -1,11 +1,40 @@
 from rest_framework import viewsets, permissions
-from .models import User,Role,Invoice
+from .models import User, Role, Invoice
 from .permissions import IsAdminUser, IsFinanceTeam
 from rest_framework.response import Response
-from .serializers import CustomUserSerializer,InvoiceSerializer
+from .serializers import CustomUserSerializer, InvoiceSerializer
 from rest_framework.decorators import action
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="List all users",
+        description="Get a list of all users. Requires admin access."
+    ),
+    retrieve=extend_schema(
+        summary="Retrieve user details",
+        description="Get details for a specific user."
+    ),
+    update=extend_schema(
+        summary="Update user",
+        description="Update an existing user's information. Requires admin access."
+    ),
+    partial_update=extend_schema(
+        summary="Partially update user",
+        description="Update part of an existing user's information. Requires admin access."
+    ),
+    destroy=extend_schema(
+        summary="Delete user",
+        description="Delete a user. Requires admin access."
+    )
+)
 class UserViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing users.
+    
+    This viewset provides CRUD operations for User objects.
+    Only administrators can assign roles to users.
+    """
     queryset = User.objects.all()
     serializer_class = CustomUserSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -15,8 +44,32 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.IsAdminUser()]
         return super().get_permissions()
     
+    @extend_schema(
+        summary="Update user role",
+        description="Change a user's role. Only admins can update roles.",
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'role': {'type': 'string', 'enum': [choice[0] for choice in Role.choices]}
+                },
+                'required': ['role']
+            }
+        },
+        responses={
+            200: {'description': 'Role updated successfully'},
+            400: {'description': 'Invalid role provided'},
+            403: {'description': 'Not enough permissions'}
+        }
+    )
     @action(detail=True, methods=['post'])
-    def update_role(self, request, pk = None):
+    def update_role(self, request, pk=None):
+        """
+        Update a user's role.
+        
+        Only administrators can change user roles.
+        Valid roles are: AI Engineer, FinanceTeam, and Admin.
+        """
         user = self.get_object()
         if request.user.role != Role.ADMIN:
             return Response({'error': 'Only Admins can Alter roles'}, status=403)
@@ -30,14 +83,46 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'message': f'Role updated to {role}'}, status=200)
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="List all invoices",
+        description="Get a list of all invoices. Requires finance team or admin access."
+    ),
+    retrieve=extend_schema(
+        summary="Retrieve invoice details",
+        description="Get details for a specific invoice."
+    ),
+    create=extend_schema(
+        summary="Create invoice",
+        description="Create a new invoice. Requires finance team or admin access."
+    ),
+    update=extend_schema(
+        summary="Update invoice",
+        description="Update an existing invoice. Requires finance team or admin access."
+    ),
+    partial_update=extend_schema(
+        summary="Partially update invoice",
+        description="Update part of an existing invoice. Requires finance team or admin access."
+    ),
+    destroy=extend_schema(
+        summary="Delete invoice",
+        description="Delete an invoice. Requires finance team or admin access."
+    )
+)
 class InvoiceViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing invoices.
+    
+    This viewset provides CRUD operations for Invoice objects.
+    Finance team and admin users can create, update, and delete invoices.
+    """
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_permissions(self):
         if self.action in ['view', 'retrieve', 'create', 'update', 'partial_update', 'destroy']:
-            return [IsFinanceTeam or IsAdminUser]
+            return [IsFinanceTeam() | IsAdminUser()]
         return super().get_permissions()
     
     def perform_create(self, serializer):
@@ -45,8 +130,28 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         user = User.objects.get(id=user_id)
         serializer.save(user=user)
     
+    @extend_schema(
+        summary="Generate payment link",
+        description="Create a payment link for an invoice using Stripe.",
+        responses={
+            200: {
+                'description': 'Payment link generated successfully',
+                'type': 'object',
+                'properties': {
+                    'payment_url': {'type': 'string', 'format': 'uri'}
+                }
+            },
+            400: {'description': 'Could not create payment session'}
+        }
+    )
     @action(detail=True, methods=['post'])
     def payment_link(self, request, pk=None):
+        """
+        Generate a Stripe payment link for the invoice.
+        
+        Creates a Stripe Checkout session and returns the payment URL.
+        Updates the invoice with payment details.
+        """
         invoice = self.get_object()
         domain_url = request.build_absolute_uri('/').rstrip('/')
 
@@ -66,8 +171,28 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 'error': 'Could not create payment session'
             }, status=400)
     
+    @extend_schema(
+        summary="Verify payment status",
+        description="Check the payment status of an invoice with Stripe.",
+        responses={
+            200: {
+                'description': 'Payment status',
+                'type': 'object',
+                'properties': {
+                    'status': {'type': 'string'},
+                    'invoice_status': {'type': 'string'}
+                }
+            }
+        }
+    )
     @action(detail=True, methods=['get'])
     def verify_payment(self, request, pk=None):
+        """
+        Check the payment status of an invoice.
+        
+        Verifies the payment status with Stripe and updates the invoice status
+        if the payment has been successfully processed.
+        """
         invoice = self.get_object()
         
         if not invoice.stripe_payment_intent_id:

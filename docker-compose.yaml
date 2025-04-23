@@ -38,7 +38,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./FastAPI:/app/FastAPI
+      - ./FastAPI:/app
     depends_on:
       - api
     restart: unless-stopped

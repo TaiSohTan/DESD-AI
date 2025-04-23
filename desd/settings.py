@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'djoser',
+    'corsheaders',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -59,12 +61,15 @@ MIDDLEWARE = [
     'api.middleware.JWTCookieMiddleware',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 ROOT_URLCONF = 'desd.urls'
 
+# Setting up the link to the HTML Templates to be rendered 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'api/templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -77,7 +82,6 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'desd.wsgi.application'
 
 
 # Database
@@ -87,11 +91,11 @@ WSGI_APPLICATION = 'desd.wsgi.application'
 DATABASES = {
     "default": {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'desd-example',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'host.docker.internal',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT','5432'),
     }
 }
 
@@ -114,24 +118,8 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
-
-## Setting up the link to the HTML Templates to be rendered 
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'api/templates')],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
 
 ## Link to all the Static Files (CSS, JS, Images)
 STATIC_URL = '/static/'
@@ -170,6 +158,20 @@ DJOSER = {
     },
 }
 
+# DRF Spectacular settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Insurance Claims API',
+    'DESCRIPTION': 'API for insurance claims processing and settlement prediction',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'auth', 'description': 'Authentication and user management'},
+        {'name': 'predictions', 'description': 'Claim settlement predictions'},
+        {'name': 'models', 'description': 'ML model management'},
+        {'name': 'invoices', 'description': 'Invoice and payment processing'},
+    ],
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -200,12 +202,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
-
-STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

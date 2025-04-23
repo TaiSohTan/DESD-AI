@@ -1,0 +1,312 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}Prediction Detail - AI Engineer View{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="text-primary">Prediction Review</h1>
+            <p class="lead">Detailed information for Prediction #{{ prediction.id }}</p>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Status and Actions Card -->
+    <div class="card mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Status & Actions</h5>
+                <div>
+                    {% if prediction.is_checked %}
+                        <span class="badge bg-success">Checked</span>
+                    {% else %}
+                        <span class="badge bg-warning">Unchecked</span>
+                    {% endif %}
+                    
+                    {% if prediction.is_reasonable == True %}
+                        <span class="badge bg-success ms-2">Accepted by User</span>
+                    {% elif prediction.is_reasonable == False %}
+                        <span class="badge bg-danger ms-2">Disputed by User</span>
+                    {% else %}
+                        <span class="badge bg-secondary ms-2">No Feedback</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Created:</strong> {{ prediction.timestamp|date:"F j, Y, g:i a" }}</p>
+                        <p><strong>User:</strong> {{ user.name }} ({{ user.email }})</p>
+                        {% if prediction.feedback_date %}
+                            <p><strong>Feedback Date:</strong> {{ prediction.feedback_date|date:"F j, Y, g:i a" }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 text-end">
+                        {% if not prediction.is_checked %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <button type="submit" name="mark_checked" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> Mark as Checked
+                                </button>
+                            </form>
+                        {% else %}
+                            <p class="text-success"><i class="bi bi-check-circle-fill"></i> This prediction has been checked</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if prediction.is_reasonable == False %}
+                    <div class="alert alert-danger mt-3">
+                        <h5>User Dispute Details</h5>
+                        <p><strong>Proposed Settlement:</strong> £{{ prediction.proposed_settlement|floatformat:2 }}</p>
+                        <p><strong>Adjustment Rationale:</strong> {{ prediction.adjustment_rationale }}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Prediction Result Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Prediction Result</h5>
+            </div>
+            <div class="card-body text-center">
+                <h2 class="display-4">£{{ prediction.settlement_value|floatformat:2 }}</h2>
+                <p class="lead">
+                    Confidence: 
+                    <span class="badge 
+                        {% if result.confidence >= 80 %}bg-success
+                        {% elif result.confidence >= 60 %}bg-primary
+                        {% elif result.confidence >= 40 %}bg-warning
+                        {% else %}bg-danger{% endif %}">
+                        {{ result.confidence }}%
+                    </span>
+                </p>
+            </div>
+        </div>
+        
+        <!-- User Input Summary -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Submitted Claim Details</h5>
+            </div>
+            <div class="card-body">
+                <p>This claim was submitted on {{ prediction.timestamp|date:"F j, Y" }} and includes the following details:</p>
+            </div>
+            <div class="accordion" id="inputDataAccordion">
+                <!-- Personal Information -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="personalInfoHeading">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#personalInfo" aria-expanded="true" aria-controls="personalInfo">
+                            Personal Information
+                        </button>
+                    </h2>
+                    <div id="personalInfo" class="accordion-collapse collapse show" aria-labelledby="personalInfoHeading" data-bs-parent="#inputDataAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Gender:</strong> {{ input_data.Gender }}</p>
+                                    <p><strong>Driver Age:</strong> {{ input_data.Driver_Age }} years</p>
+                                    <!-- Add other personal fields here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Accident Information -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="accidentInfoHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accidentInfo" aria-expanded="false" aria-controls="accidentInfo">
+                            Accident Information
+                        </button>
+                    </h2>
+                    <div id="accidentInfo" class="accordion-collapse collapse" aria-labelledby="accidentInfoHeading" data-bs-parent="#inputDataAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Accident Type:</strong> {{ input_data.Accident_Type }}</p>
+                                    <p><strong>Weather Conditions:</strong> {{ input_data.Weather_Conditions }}</p>
+                                    <p><strong>Days Since Accident:</strong> {{ input_data.Days_Between_Accident_And_Claim }}</p>
+                                    <p><strong>Police Report Filed:</strong> {% if input_data.Police_Report_Filed %}Yes{% else %}No{% endif %}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Accident Description:</strong> {{ input_data.Accident_Description }}</p>
+                                    <p><strong>Witness Present:</strong> {% if input_data.Witness_Present %}Yes{% else %}No{% endif %}</p>
+                                    <p><strong>Exceptional Circumstances:</strong> {% if input_data.Exceptional_Circumstances %}Yes{% else %}No{% endif %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vehicle Information -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="vehicleInfoHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicleInfo" aria-expanded="false" aria-controls="vehicleInfo">
+                            Vehicle Information
+                        </button>
+                    </h2>
+                    <div id="vehicleInfo" class="accordion-collapse collapse" aria-labelledby="vehicleInfoHeading" data-bs-parent="#inputDataAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Vehicle Type:</strong> {{ input_data.Vehicle_Type }}</p>
+                                    <p><strong>Vehicle Age:</strong> {{ input_data.Vehicle_Age }} years</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Number of Passengers:</strong> {{ input_data.Number_Of_Passengers }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Injury Information -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="injuryInfoHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#injuryInfo" aria-expanded="false" aria-controls="injuryInfo">
+                            Injury Information
+                        </button>
+                    </h2>
+                    <div id="injuryInfo" class="accordion-collapse collapse" aria-labelledby="injuryInfoHeading" data-bs-parent="#inputDataAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Injury Description:</strong> {{ input_data.Injury_Description }}</p>
+                                    <p><strong>Dominant Injury:</strong> {{ input_data.Dominant_Injury }}</p>
+                                    <p><strong>Whiplash:</strong> {% if input_data.Whiplash %}Yes{% else %}No{% endif %}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Injury Prognosis:</strong> {{ input_data.Injury_Prognosis }} months</p>
+                                    <p><strong>Psychological Injury:</strong> {% if input_data.Minor_Psychological_Injury %}Yes{% else %}No{% endif %}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Financial Information -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="financialInfoHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#financialInfo" aria-expanded="false" aria-controls="financialInfo">
+                            Financial Information
+                        </button>
+                    </h2>
+                    <div id="financialInfo" class="accordion-collapse collapse" aria-labelledby="financialInfoHeading" data-bs-parent="#inputDataAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="border-bottom pb-1 mb-2">General Damages</h6>
+                                    <p><strong>General Rest:</strong> £{{ input_data.General_Rest|floatformat:2 }}</p>
+                                    <p><strong>General Fixed:</strong> £{{ input_data.General_Fixed|floatformat:2 }}</p>
+                                    <p><strong>General Uplift:</strong> £{{ input_data.General_Uplift|floatformat:2 }}</p>
+                                    
+                                    <h6 class="border-bottom pb-1 mt-4 mb-2">Health Expenses</h6>
+                                    <p><strong>Health Expenses:</strong> £{{ input_data.Special_Health_Expenses|floatformat:2 }}</p>
+                                    <p><strong>Therapy:</strong> £{{ input_data.Special_Therapy|floatformat:2 }}</p>
+                                    <p><strong>Medications:</strong> £{{ input_data.Special_Medications|floatformat:2 }}</p>
+                                    <p><strong>Rehabilitation:</strong> £{{ input_data.Special_Rehabilitation|floatformat:2 }}</p>
+                                    <p><strong>Additional Injury:</strong> £{{ input_data.Special_Additional_Injury|floatformat:2 }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="border-bottom pb-1 mb-2">Property & Asset Damages</h6>
+                                    <p><strong>Asset Damage:</strong> £{{ input_data.Special_Asset_Damage|floatformat:2 }}</p>
+                                    <p><strong>Fixes:</strong> £{{ input_data.Special_Fixes|floatformat:2 }}</p>
+                                    <p><strong>Usage Loss:</strong> £{{ input_data.Special_Usage_Loss|floatformat:2 }}</p>
+                                    <p><strong>Loaner Vehicle:</strong> £{{ input_data.Special_Loaner_Vehicle|floatformat:2 }}</p>
+                                    
+                                    <h6 class="border-bottom pb-1 mt-4 mb-2">Other Expenses</h6>
+                                    <p><strong>Earnings Loss:</strong> £{{ input_data.Special_Earnings_Loss|floatformat:2 }}</p>
+                                    <p><strong>Journey Expenses:</strong> £{{ input_data.Special_Journey_Expenses|floatformat:2 }}</p>
+                                    <p><strong>Trip Costs:</strong> £{{ input_data.Special_Trip_Costs|floatformat:2 }}</p>
+                                    <p><strong>Overage:</strong> £{{ input_data.Special_Overage|floatformat:2 }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+            
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">SHAP Explanation</h5>
+            </div>
+            <div class="card-body">
+                {% if explanation %}
+                    <!-- Feature Impact (Waterfall Plot) -->
+                    {% if explanation.waterfall_plot %}
+                        <h6 class="mb-3">How Features Influenced This Prediction</h6>
+                        <div class="text-center mb-4">
+                            <img src="data:image/png;base64,{{ explanation.waterfall_plot }}" 
+                                class="img-fluid" alt="Feature Impact" />
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Overall Feature Importance -->
+                    {% if explanation.feature_importance_plot %}
+                        <h6 class="mb-3">Overall Feature Importance</h6>
+                        <div class="text-center mb-4">
+                            <img src="data:image/png;base64,{{ explanation.feature_importance_plot }}" 
+                                class="img-fluid" alt="Feature Importance" />
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Top Influencing Features -->
+                    {% if explanation.top_features %}
+                        <h6 class="mb-3">Top Influencing Factors</h6>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Factor</th>
+                                        <th>Relative Importance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for feature in explanation.top_features %}
+                                    <tr>
+                                        <td>{{ feature.name }}</td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar bg-primary" 
+                                                    style="width: {{ feature.importance }}%" 
+                                                    role="progressbar">
+                                                    {{ feature.importance|floatformat:0 }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">No explanation available for this prediction.</p>
+                {% endif %}
+            </div>
+    </div>
+
+    <div class="d-flex justify-content-between mb-5">
+        <a href="{% url 'review_predictions' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to All Predictions
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-primary">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

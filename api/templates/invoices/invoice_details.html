@@ -1,0 +1,107 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}Invoice #{{ invoice.id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Invoice #{{ invoice.id }}</h1>
+        <div>
+            <a href="{% url 'user_invoices' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Invoices
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Invoice Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <strong>Invoice Date:</strong> {{ invoice.issued_date|date:"F j, Y" }}<br>
+                    <strong>Due Date:</strong> {{ invoice.due_date|date:"F j, Y" }}<br>
+                    <strong>Status:</strong> 
+                    {% if invoice.status == 'Paid' %}
+                    <span class="badge bg-success">Paid</span>
+                    {% else %}
+                    <span class="badge bg-warning">Pending</span>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <h4>Total Amount</h4>
+                    <h2 class="text-primary">£{{ invoice.amount }}</h2>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Billed To</h5>
+                    <p>
+                        {{ invoice.user.name }}<br>
+                        {{ invoice.user.email }}
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <h5>From</h5>
+                    <p>
+                        InsurIQ - Machine Learning as a Service<br>
+                        UWE Bristol<br>
+                        Bristol, UK
+                    </p>
+                </div>
+            </div>
+
+            <hr>
+
+            <h5>Invoice Items</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ invoice.description }}</td>
+                            <td class="text-end">£{{ invoice.amount }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>Total</th>
+                            <th class="text-end">£{{ invoice.amount }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="{% url 'download_invoice_pdf' invoice.id %}" class="btn btn-primary">
+                    <i class="bi bi-download"></i> Download PDF
+                </a>
+                {% if invoice.status == 'Pending' %}
+                <a href="{% url 'create_payment_session' invoice.id %}" class="btn btn-success">
+                    <i class="bi bi-credit-card"></i> Pay Now
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

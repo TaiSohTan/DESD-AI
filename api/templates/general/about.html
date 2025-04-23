@@ -1,0 +1,61 @@
+{% extends "base-template.html" %}
+{% load static %}
+
+{% block title %}InsurIQ - About Us{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="my-4">About Us</h1>
+    <div class="row">
+        <div class="col-md-8">
+            <p class="lead">We are a small team of Machine Learning and AI Students passionate about our startup!</p>
+            <p>Our mission is to make machine learning accessible to businesses of all sizes. We believe that powerful AI tools should be available to everyone, not just large corporations with extensive resources.</p>
+            <p>Founded in 2025, we've been working tirelessly to develop a platform that simplifies the process of getting accurate insurance settlement predictions through machine learning.</p>
+            <h3 class="mt-4">Our Team</h3>
+            <div class="row mt-3">
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <img src="{% static 'images/JohnDoe.jpg' %}" class="card-img-top" alt="Team Member 1">
+                        <div class="card-body">
+                            <h5 class="card-title">John Doe</h5>
+                            <p class="card-text">Co-founder & AI/ML Engineer and Aficionado</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <img src="{% static 'images/JaneDoe.jpg' %}" class="card-img-top" alt="Team Member 2">
+                        <div class="card-body">
+                            <h5 class="card-title">Jane Smith</h5>
+                            <p class="card-text">Co-founder & Data Scientist/Engineering Specialist</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <img src="{% static 'images/MikeJ.jpg' %}" class="card-img-top" alt="Team Member 3">
+                        <div class="card-body">
+                            <h5 class="card-title">Mike Johnson</h5>
+                            <p class="card-text">Full-stack Developer with 10 Years Experience</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Our Values & Promises</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Innovation</li>
+                        <li class="list-group-item">Functionality</li>
+                        <li class="list-group-item">Transparency</li>
+                        <li class="list-group-item">Reliability</li>
+                        <li class="list-group-item">Customer-First Approach</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -23,14 +23,21 @@ from django.urls import path, include
 from django.conf.urls.static import static
 
 urlpatterns = [
+    # Django admin
     path('admin/', admin.site.urls),
-    path('', include('api.urls')),  # Include all app URLs
+    
+    # Include all app-specific URLs
+    path('', include('api.urls')),
     
     # Authentication with Djoser
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
-
+    
+    # API endpoints
+    path('api/', include('api.api_urls')),
 ]
 
+# Serve static files in development
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

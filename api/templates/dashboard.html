@@ -101,30 +101,43 @@
             </div>
         {% elif user.role == 'AI Engineer' %}
             <!-- AI engineer-specific functionality -->
-            <div class="col-md-4 mb-4">
-                <div class="card dashboard-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Model Management</h5>
-                        <p class="card-text">Manage and train machine learning models.</p>
-                        <a href="#" class="btn btn-primary">Manage Models</a>
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Model Management</h5>
+                            <p class="card-text">Manage and train machine learning models.</p>
+                            <a href="{% url 'model_management' %}" class="btn btn-primary">Manage Models</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Review Prediction History</h5>
+                            <p class="card-text">Review user predictions and mark them as checked.</p>
+                            <a href="{% url 'review_predictions' %}" class="btn btn-primary">View Predictions</a>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-4">
-                <div class="card dashboard-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Data Analysis</h5>
-                        <p class="card-text">Analyze data and model performance.</p>
-                        <a href="#" class="btn btn-primary">Analyze Data</a>
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Data Analysis</h5>
+                            <p class="card-text">Analyze data and model performance.</p>
+                            <a href="#" class="btn btn-primary">Analyze Data</a>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card dashboard-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Feature Engineering</h5>
-                        <p class="card-text">Create and optimize model features.</p>
-                        <a href="#" class="btn btn-primary">Engineer Features</a>
+                <div class="col-md-6 mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Feature Engineering</h5>
+                            <p class="card-text">Create and optimize model features.</p>
+                            <a href="#" class="btn btn-primary">Engineer Features</a>
+                        </div>
                     </div>
                 </div>
             </div>

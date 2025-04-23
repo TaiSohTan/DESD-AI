@@ -1,7 +1,7 @@
-from django.urls import path, include
+from django.urls import path
 from django.conf.urls.static import static
-from rest_framework.routers import DefaultRouter
-from .viewsets import UserViewSet, InvoiceViewSet
+from django.conf import settings
+
 from .views import (
     # Static page views
     home, about, services, pricing, contact,
@@ -15,6 +15,12 @@ from .views import (
     # Prediction and feedback views
     prediction_form, submit_prediction_feedback, prediction_history, prediction_detail, prediction_feedback,
     
+    # Model management views
+    model_management, set_model_active, delete_model,
+    
+    # AI Engineer views
+    review_predictions, aiengineer_prediction_detail,
+    
     # User invoice views
     user_invoices, download_invoice_pdf, create_payment_session, invoice_detail, stripe_webhook,
     
@@ -23,20 +29,10 @@ from .views import (
     finance_invoice_delete, finance_invoice_verify_payment,
     
     # Payment views
-    payment_success_view, payment_cancel_view
+    payment_success_view, payment_cancel_view,
 )
 
-# Register the UserViewSet with a router
-router = DefaultRouter()
-router.register(r'users', UserViewSet)
-router.register(r'invoices', InvoiceViewSet)
-
-# DRF API endpoints
-api_urlpatterns = [
-    path('', include(router.urls)),
-]
-
-# Main application URLs
+# Group URLs by functional area for better organization
 urlpatterns = [
     # Static Pages
     path('', home, name='home'),
@@ -67,13 +63,25 @@ urlpatterns = [
     path('predict/detail/<int:prediction_id>/', prediction_detail, name='prediction_detail'),
     path('predict/feedback/<int:prediction_id>/', prediction_feedback, name='prediction_feedback'),
     
-    # Payment and Billing URLs
+    # Model Management URLs
+    path('model-management/', model_management, name='model_management'),
+    path('set-model-active/<int:model_id>/', set_model_active, name='set_model_active'),
+    path('delete-model/<int:model_id>/', delete_model, name='delete_model'),
+    
+    # AI Engineer URLs
+    path('review-predictions/', review_predictions, name='review_predictions'),
+    path('aiengineer-prediction-detail/<int:prediction_id>/', aiengineer_prediction_detail, 
+         name='aiengineer_prediction_detail'),
+    
+    # User Invoice URLs
     path('user/invoices/', user_invoices, name='user_invoices'),
+    path('user/invoices/<int:invoice_id>/', invoice_detail, name='invoice_detail'),
     path('user/invoices/<int:invoice_id>/download/', download_invoice_pdf, name='download_invoice_pdf'),
     path('user/invoices/<int:invoice_id>/pay/', create_payment_session, name='create_payment_session'),
+    
+    # Payment URLs
     path('user/payment/success/', payment_success_view, name='payment_success_view'),
     path('user/payment/cancel/', payment_cancel_view, name='payment_cancel_view'),
-    path('user/invoices/<int:invoice_id>/', invoice_detail, name='invoice_detail'),
     path('webhook/stripe/', stripe_webhook, name='stripe_webhook'),
     
     # Finance Team Invoice Management
@@ -82,5 +90,6 @@ urlpatterns = [
     path('finance/invoices/<int:invoice_id>/', finance_invoice_detail, name='finance_invoice_detail'),
     path('finance/invoices/<int:invoice_id>/edit/', finance_invoice_edit, name='finance_invoice_edit'),
     path('finance/invoices/<int:invoice_id>/delete/', finance_invoice_delete, name='finance_invoice_delete'),
-    path('finance/invoices/<int:invoice_id>/verify-payment/', finance_invoice_verify_payment, name='finance_invoice_verify_payment'),
+    path('finance/invoices/<int:invoice_id>/verify-payment/', finance_invoice_verify_payment, 
+         name='finance_invoice_verify_payment'),
 ]

@@ -180,6 +180,61 @@
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0">SHAP Explanation</h5>
                 </div>
+                <div class="card-body pt-4">
+                    <!-- Brief explanation text with bottom margin -->
+                    <p class="text-muted mb-3">
+                        These cards show the top factors influencing the settlement amount. 
+                        Green factors increase the settlement, while red factors decrease it.
+                    </p>
+                    <div class="row mb-4">
+                        <!-- Increasing Factors (Green) -->
+                        <div class="col-md-6">
+                            <div class="card border-success h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">Factors Increasing Settlement</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if explanation.positive_features %}
+                                        <ul class="list-group list-group-flush">
+                                            {% for feature in explanation.positive_features %}
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                {{ feature.name }}
+                                                <span class="badge bg-success rounded-pill">{{ feature.impact }}</span>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted">No significant factors increasing the settlement value.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Decreasing Factors (Red) -->
+                        <div class="col-md-6">
+                            <div class="card border-danger h-100">
+                                <div class="card-header bg-danger text-white">
+                                    <h5 class="mb-0">Factors Decreasing Settlement</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if explanation.negative_features %}
+                                        <ul class="list-group list-group-flush">
+                                            {% for feature in explanation.negative_features %}
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                {{ feature.name }}
+                                                <span class="badge bg-danger rounded-pill">{{ feature.impact }}</span>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted">No significant factors decreasing the settlement value.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="card-body">
                     {% if explanation %}
                         <!-- Feature Impact (Waterfall Plot) -->

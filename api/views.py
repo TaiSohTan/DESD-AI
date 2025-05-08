@@ -887,7 +887,9 @@ def prediction_detail(request, prediction_id):
             'waterfall_plot': explanation_dict.get('waterfall_plot'),
             'feature_importance_plot': explanation_dict.get('feature_importance_plot'),
             'top_features': explanation_dict.get('top_features', []),
-            'base_value': explanation_dict.get('base_value')
+            'base_value': explanation_dict.get('base_value'),
+            'positive_features': explanation_dict.get('positive_features', []),
+            'negative_features': explanation_dict.get('negative_features', []),  
         }
         
         return render(request, 'predictions/prediction_detail.html', {
@@ -1198,7 +1200,9 @@ def aiengineer_prediction_detail(request, prediction_id):
             'waterfall_plot': explanation_dict.get('waterfall_plot'),
             'feature_importance_plot': explanation_dict.get('feature_importance_plot'),
             'top_features': explanation_dict.get('top_features', []),
-            'base_value': explanation_dict.get('base_value')
+            'base_value': explanation_dict.get('base_value'),
+            'positive_features': explanation_dict.get('positive_features', []),  
+            'negative_features': explanation_dict.get('negative_features', []),  
         }
         
         # Add confidence and other details from the prediction result

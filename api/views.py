@@ -128,8 +128,35 @@ def register_view(request):
             # Automatically log in the user
             login(request, user)
             
-            # Redirect to home page or display success message
-            return redirect('home')
+            # Check if this is the first user in the system
+            is_first_user = User.objects.count() == 1
+            
+            # If this is the first user, set them as admin and don't create an invoice
+            if is_first_user:
+                user.role = Role.ADMIN
+                user.save()
+                messages.success(request, "Registration successful! Welcome to InsurIQ. As the first user, you have been assigned admin privileges.")
+                return redirect('dashboard')
+            else:
+                # Create a one-time invoice for non-first users
+                try:
+                    invoice = Invoice.objects.create(
+                        user=user,
+                        description="Full system access - One-time payment",
+                        amount=125.00,
+                        due_date=timezone.now() + timedelta(days=7),
+                        status='Pending'
+                    )
+                    invoice.save()
+                    
+                    # Add success message
+                    messages.success(request, "Registration successful! Welcome to InsurIQ.")
+                    
+                except Exception as e:
+                    return render(request, 'auth/register.html', {'error_message': f'Error creating invoice: {str(e)}'})
+
+                # Redirect to the user's invoices page
+                return redirect('user_invoices')
         except Exception as e:
             return render(request, 'auth/register.html', {'error_message': f'Registration error: {str(e)}'})
     
@@ -286,6 +313,19 @@ def dashboard(request):
         'user': user,
         'role': user.role,
     }
+    
+    # Check if the user has an active subscription
+    has_subscription = has_active_subscription(user)
+    context['has_subscription'] = has_subscription
+    
+    # If user is a regular user, add a notice about payment if needed
+    if user.role == 'End User' or user.role == 'User' or user.get_role_display() == 'End User':
+        if not has_subscription:
+            context['payment_required'] = True
+            # Get the pending invoice if there is one
+            pending_invoice = Invoice.objects.filter(user=user, status='Pending').first()
+            if pending_invoice:
+                context['pending_invoice'] = pending_invoice
     
     # Add recent activities based on user role
     recent_activities = []
@@ -480,7 +520,23 @@ def add_user(request):
         try:
             user = User.objects.create_user(email=email, name=name, password=password, role=role)
             user.save()
-            messages.success(request, f"User {name} created successfully.")
+            
+            # Only create an invoice if the user is an End User
+            if role == Role.END_USER:
+                try:
+                    invoice = Invoice.objects.create(
+                        user=user,
+                        description="Full system access - One-time payment",
+                        amount=125.00,
+                        due_date=timezone.now() + timedelta(days=7),
+                        status='Pending'
+                    )
+                    invoice.save()
+                    messages.success(request, f"User {name} created successfully with a pending invoice.")
+                except Exception as e:
+                    messages.warning(request, f"User created but failed to generate invoice: {str(e)}")
+            else:
+                messages.success(request, f"User {name} created successfully with {role} privileges. No invoice required.")
         except Exception as e:
             messages.error(request, f"Error creating user: {str(e)}")
         
@@ -548,11 +604,28 @@ def change_user_role(request, user_id):
                 messages.error(request, "Cannot change the role of the last admin.")
                 return redirect('user_management')
         
+        # Check if user is being upgraded from End User to any other role
+        is_role_upgrade = user_to_change.role == Role.END_USER and role != Role.END_USER
+        
         # Update user role
         try:
+            # Store old role for message
+            old_role = user_to_change.role
+            
+            # Update the role
             user_to_change.role = role
             user_to_change.save()
-            messages.success(request, f"Role for {user_to_change.name} changed to {role} successfully.")
+            
+            # If user is being upgraded from End User, delete any pending invoices
+            if is_role_upgrade:
+                # Find and delete all pending invoices for this user
+                pending_invoices = Invoice.objects.filter(user=user_to_change, status='Pending')
+                count = pending_invoices.count()
+                if count > 0:
+                    pending_invoices.delete()
+                    messages.success(request, f"Deleted {count} pending invoice(s) as the user was upgraded from End User.")
+            
+            messages.success(request, f"Role for {user_to_change.name} changed from {old_role} to {role} successfully.")
         except Exception as e:
             messages.error(request, f"Error changing role: {str(e)}")
         
@@ -713,6 +786,11 @@ def account_settings(request):
 @login_required
 def prediction_form(request):
     """View for the prediction form"""
+    # Check if the user has paid the one-time fee
+    if not has_active_subscription(request.user):
+        messages.warning(request, "Payment required. Please pay the one-time access fee to use prediction features.")
+        return redirect('user_invoices')
+        
     # Check if ML service is available
     ml_service_available = health()
     
@@ -778,6 +856,11 @@ def prediction_form(request):
 @login_required
 def prediction_history(request):
     """View for user's prediction history"""
+    # Check if the user has paid the one-time fee
+    if not has_active_subscription(request.user):
+        messages.warning(request, "Payment required. Please pay the one-time access fee to view prediction history.")
+        return redirect('user_invoices')
+    
     # Get the user's predictions
     predictions = Prediction.objects.filter(user=request.user)
     
@@ -788,6 +871,11 @@ def prediction_history(request):
 @login_required
 def prediction_detail(request, prediction_id):
     """View for detailed prediction information"""
+    # Check if the user has paid the one-time fee
+    if not has_active_subscription(request.user):
+        messages.warning(request, "Payment required. Please pay the one-time access fee to view prediction details.")
+        return redirect('user_invoices')
+        
     try:
         prediction = Prediction.objects.get(id=prediction_id, user=request.user)
 
@@ -815,6 +903,11 @@ def prediction_detail(request, prediction_id):
 @login_required
 def prediction_feedback(request, prediction_id):
     """View for providing feedback on a prediction"""
+    # Check if the user has paid the one-time fee
+    if not has_active_subscription(request.user):
+        messages.warning(request, "Payment required. Please pay the one-time access fee to provide feedback.")
+        return redirect('user_invoices')
+        
     try:
         prediction = Prediction.objects.get(id=prediction_id, user=request.user)
         
@@ -970,13 +1063,130 @@ def review_predictions(request):
     })
 
 @login_required
+def ai_data_analysis(request):
+    """View for AI Engineers to analyze prediction data"""
+    # Check if user is AI Engineer or Admin
+    if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
+        messages.error(request, "Access denied. AI Engineer privileges required.")
+        return redirect('dashboard')
+    
+    # Apply filters
+    filter_params = {}
+    
+    # Get filter parameters
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    feedback_filter = request.GET.get('feedback')
+    confidence_min = request.GET.get('confidence_min')
+    confidence_max = request.GET.get('confidence_max')
+    
+    # Apply date filters
+    if date_from:
+        try:
+            date_from = timezone.datetime.strptime(date_from, '%Y-%m-%d')
+            filter_params['timestamp__gte'] = date_from
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            date_to = timezone.datetime.strptime(date_to, '%Y-%m-%d')
+            # Add one day to include the entire end date
+            date_to = date_to + timezone.timedelta(days=1)
+            filter_params['timestamp__lt'] = date_to
+        except ValueError:
+            pass
+    
+    # Apply feedback filter
+    if feedback_filter == 'positive':
+        filter_params['is_reasonable'] = True
+    elif feedback_filter == 'negative':
+        filter_params['is_reasonable'] = False
+    elif feedback_filter == 'none':
+        filter_params['is_reasonable'] = None
+    
+    # Fetch predictions based on filters
+    predictions = Prediction.objects.filter(**filter_params).order_by('-timestamp')
+    
+    # Apply confidence filters in Python (since it's stored in JSON)
+    if confidence_min or confidence_max:
+        filtered_predictions = []
+        for pred in predictions:
+            confidence = pred.result.get('confidence', 0) if pred.result else 0
+            try:
+                # Handle string confidence values with % sign
+                if isinstance(confidence, str):
+                    confidence = float(confidence.rstrip('%'))
+                else:
+                    confidence = float(confidence)
+                    
+                if confidence_min and confidence < float(confidence_min):
+                    continue
+                if confidence_max and confidence > float(confidence_max):
+                    continue
+                filtered_predictions.append(pred)
+            except (ValueError, TypeError):
+                # Skip predictions with invalid confidence values
+                continue
+        predictions = filtered_predictions
+    
+    # Pagination
+    paginator = Paginator(predictions, 10)  # 10 items per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Calculate summary statistics
+    total_predictions = Prediction.objects.count()
+    positive_feedback = Prediction.objects.filter(is_reasonable=True).count()
+    negative_feedback = Prediction.objects.filter(is_reasonable=False).count()
+    avg_settlement = Prediction.objects.aggregate(Avg('settlement_value'))['settlement_value__avg'] or 0
+    
+    # Calculate average confidence instead of accuracy rate
+    confidence_sum = 0
+    confidence_count = 0
+    for pred in Prediction.objects.all():
+        if pred.result and 'confidence' in pred.result:
+            try:
+                confidence_value = pred.result['confidence']
+                # Handle string confidence values with % sign
+                if isinstance(confidence_value, str):
+                    confidence_value = confidence_value.rstrip('%')
+                confidence = float(confidence_value)
+                confidence_sum += confidence
+                confidence_count += 1
+            except (ValueError, TypeError):
+                # Skip predictions with invalid confidence values
+                continue
+    
+    avg_confidence = round(confidence_sum / confidence_count, 2) if confidence_count > 0 else 0
+    
+    context = {
+        'page_obj': page_obj,
+        'total_predictions': total_predictions,
+        'positive_feedback': positive_feedback,
+        'negative_feedback': negative_feedback,
+        'no_feedback': total_predictions - (positive_feedback + negative_feedback),
+        'avg_confidence': avg_confidence,  # Changed from accuracy_rate to avg_confidence
+        'avg_settlement': round(float(avg_settlement), 2),
+        'filters': {
+            'date_from': date_from.strftime('%Y-%m-%d') if date_from else '',
+            'date_to': (date_to - timezone.timedelta(days=1)).strftime('%Y-%m-%d') if date_to else '',
+            'feedback': feedback_filter or '',
+            'confidence_min': confidence_min or '',
+            'confidence_max': confidence_max or '',
+        }
+    }
+    
+    return render(request, 'predictions/data_analysis.html', context)
+
+@login_required
 def aiengineer_prediction_detail(request, prediction_id):
     """View for AI Engineers to see detailed prediction information"""
     # Check if user is AI Engineer or Admin
     if request.user.role != 'AI Engineer' and request.user.role != 'Admin':
         messages.error(request, "Access denied. AI Engineer privileges required.")
         return redirect('dashboard')
-    
+        
     try:
         prediction = Prediction.objects.get(id=prediction_id)
 
@@ -991,21 +1201,15 @@ def aiengineer_prediction_detail(request, prediction_id):
             'base_value': explanation_dict.get('base_value')
         }
         
-        # Handle marking prediction as checked
-        if request.method == 'POST' and 'mark_checked' in request.POST:
-            prediction.is_checked = True
-            if prediction.needs_review:
-                prediction.needs_review = False
-            prediction.save()
-            messages.success(request, f"Prediction #{prediction_id} marked as checked.")
-            return redirect('aiengineer_prediction_detail', prediction_id=prediction_id)
+        # Add confidence and other details from the prediction result
+        confidence = prediction.result.get('confidence', 'N/A') if prediction.result else 'N/A'
         
         return render(request, 'predictions/aiengineer_prediction_detail.html', {
             'prediction': prediction,
             'input_data': prediction.input_data,
             'result': prediction.result,
             'explanation': explanation,
-            'user': prediction.user  # Pass user info to template
+            'confidence': confidence
         })
     except Prediction.DoesNotExist:
         messages.error(request, "Prediction not found.")
@@ -1514,9 +1718,44 @@ def model_management(request):
         
         return redirect('model_management')
     
+    # Auto-register models from filesystem
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    model_dir = os.path.join(base_dir, 'media', 'ml_models')
+
     # Get all models grouped by type
     models = MLModel.objects.all().order_by('-uploaded_at')
     active_model = models.filter(is_active=True).first()
+
+     # Get existing model filenames from database
+    registered_filenames = set(os.path.basename(model.file.name) for model in models)
+    
+    # Scan directory for unregistered model files
+    registered_count = 0
+    if os.path.exists(model_dir):
+        for filename in os.listdir(model_dir):
+            if filename.endswith(('.pkl', '.h5')) and filename not in registered_filenames:
+                # Extract model name (text before extension)
+                model_name = os.path.splitext(filename)[0]
+
+                try: 
+                    new_model = MLModel(
+                        name=model_name,
+                        model_type="Unknown",
+                        description="Auto-registered from filesystem",
+                        file=f"ml_models/{filename}", 
+                        uploaded_by=request.user, 
+                        is_active=False,
+                        requires_scaling=False
+                    )
+                    new_model.save()
+                    registered_count += 1
+                except Exception as e:
+                    print(f"Error auto-registering model {filename}: {str(e)}")
+    
+    if registered_count > 0:
+        messages.info(request, f"Auto-registered {registered_count} new models from filesystem.")
+        # Refresh models list after registration
+        models = MLModel.objects.all().order_by('-uploaded_at')
 
     # Check file existence for each model in both possible locations
     for model in models:
@@ -2006,24 +2245,43 @@ def get_prediction_metrics(start_date=None):
     prediction_labels = [entry['date'].strftime('%Y-%m-%d') for entry in predictions_over_time]
     prediction_data = [entry['count'] for entry in predictions_over_time]
     
-    # Accuracy over time
-    if feedback_predictions.exists():
-        accuracy_over_time = feedback_predictions \
+    # Confidence over time (replacing accuracy over time)
+    confidence_over_time = []
+    if predictions.exists():
+        # Group by month
+        predictions_by_date = predictions \
             .annotate(date=TruncMonth('timestamp')) \
-            .values('date') \
-            .annotate(
-                accurate=Count('id', filter=Q(is_reasonable=True)),
-                total=Count('id')
-            ).order_by('date')
+            .values('date')
         
-        accuracy_labels = [entry['date'].strftime('%Y-%m-%d') for entry in accuracy_over_time]
-        accuracy_data = [
-            round(entry['accurate'] / entry['total'] * 100, 1) if entry['total'] > 0 else 0 
-            for entry in accuracy_over_time
-        ]
+        # Get unique dates
+        unique_dates = predictions_by_date.distinct().order_by('date')
+        
+        # For each date, calculate average confidence
+        for date_entry in unique_dates:
+            date = date_entry['date']
+            date_predictions = predictions.filter(timestamp__year=date.year, 
+                                                timestamp__month=date.month)
+            
+            # Extract confidence values from JSON result field
+            confidence_values = []
+            for pred in date_predictions:
+                confidence = pred.result.get('confidence', 0)
+                if isinstance(confidence, str):
+                    # Handle string percentage values
+                    confidence = float(confidence.rstrip('%'))
+                confidence_values.append(float(confidence))
+            
+            avg_confidence = sum(confidence_values) / len(confidence_values) if confidence_values else 0
+            confidence_over_time.append({
+                'date': date,
+                'avg_confidence': round(avg_confidence, 1)
+            })
+            
+        confidence_labels = [entry['date'].strftime('%Y-%m-%d') for entry in confidence_over_time]
+        confidence_data = [entry['avg_confidence'] for entry in confidence_over_time]
     else:
-        accuracy_labels = []
-        accuracy_data = []
+        confidence_labels = []
+        confidence_data = []
     
     return {
         'total_predictions': predictions.count(),
@@ -2034,8 +2292,11 @@ def get_prediction_metrics(start_date=None):
         'avg_settlement': float(avg_settlement),
         'prediction_labels': json.dumps(prediction_labels),
         'prediction_data': json.dumps(prediction_data),
-        'accuracy_labels': json.dumps(accuracy_labels),
-        'accuracy_data': json.dumps(accuracy_data)
+        'confidence_labels': json.dumps(confidence_labels),
+        'confidence_data': json.dumps(confidence_data),
+        # Keep accuracy data for backward compatibility
+        'accuracy_labels': json.dumps([]),
+        'accuracy_data': json.dumps([])
     }
 
 @login_required
@@ -2142,3 +2403,9 @@ def export_analytics_data(request):
             ])
     
     return response
+
+# Add this function to check if a user has paid the one-time fee
+def has_active_subscription(user):
+    """Check if a user has paid the one-time fee"""
+    # Look for invoices marked as 'Paid'
+    return Invoice.objects.filter(user=user, status='Paid').exists()

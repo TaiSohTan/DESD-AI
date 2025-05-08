@@ -179,17 +179,6 @@ class ShapExplainer:
                     max_display=num_features,  # Show all features
                     show=False
                 )
-                """
-                shap.plots.waterfall(
-                    shap.Explanation(
-                        values=shap_values[0], 
-                        base_values=expected_value_scalar,  # Now it's a scalar
-                        data=input_data.iloc[0],
-                        feature_names=self.feature_names
-                    ),
-                    show=False
-                )
-                """
                 
                 print("== XAI DEBUG MSG == Waterfall plot created successfully")
             except Exception as e:
@@ -282,12 +271,29 @@ class ShapExplainer:
                     print(f"== XAI DEBUG MSG ==   {feature} decreases the prediction by {abs(value):.2f}")
             
             print("== XAI DEBUG MSG == END DETAILED EXPLANATION =====================")
+
+            # Add these lines before returning the explanation dictionary
+            positive_features = [
+                {"name": feature, "impact": f"+{value:.2f}", "importance": value} 
+                for feature, value in zip(self.feature_names, shap_values[0]) 
+                if value > 0
+            ]
+            positive_features.sort(key=lambda x: x["importance"], reverse=True)
+
+            negative_features = [
+                {"name": feature, "impact": f"{value:.2f}", "importance": value} 
+                for feature, value in zip(self.feature_names, shap_values[0]) 
+                if value < 0
+            ]
+            negative_features.sort(key=lambda x: x["importance"])
                 
             print("== XAI DEBUG MSG == Returning explanation data")
             return {
                 "feature_importance_plot": img_str,
                 "waterfall_plot": waterfall_img,
                 "top_features": normalized_top_features,
+                "positive_features": positive_features[:5],  # Top 5 positive
+                "negative_features": negative_features[:5],  # Top 5 negative
                 "base_value": expected_value,
                 "shap_values": shap_values[0].tolist()
             }

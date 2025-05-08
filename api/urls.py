@@ -19,7 +19,7 @@ from .views import (
     model_management, set_model_active, delete_model,
     
     # AI Engineer views
-    review_predictions, aiengineer_prediction_detail,
+    review_predictions, ai_data_analysis, aiengineer_prediction_detail,
     
     # User invoice views
     user_invoices, download_invoice_pdf, create_payment_session, invoice_detail, stripe_webhook,
@@ -78,8 +78,8 @@ urlpatterns = [
     
     # AI Engineer URLs
     path('review-predictions/', review_predictions, name='review_predictions'),
-    path('aiengineer-prediction-detail/<int:prediction_id>/', aiengineer_prediction_detail, 
-         name='aiengineer_prediction_detail'),
+    path('ai-data-analysis/', ai_data_analysis, name='ai_data_analysis'),
+    path('review-predictions/<int:prediction_id>/', aiengineer_prediction_detail, name='aiengineer_prediction_detail'),
     
     # User Invoice URLs
     path('user/invoices/', user_invoices, name='user_invoices'),

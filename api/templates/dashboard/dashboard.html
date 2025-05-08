@@ -5,6 +5,41 @@
 
 {% block extra_head %}
 <link href="{% static 'css/dashboard.css' %}" rel="stylesheet">
+<style>
+    .payment-alert {
+        background-color: #fff3cd;
+        border-left: 5px solid #ffc107;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        padding: 1.5rem;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
+        }
+        70% {
+            box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+        }
+    }
+    
+    .payment-alert .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+        font-weight: bold;
+        padding: 0.5rem 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .payment-alert .btn-success:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+        transform: translateY(-2px);
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -102,7 +137,7 @@
         {% elif user.role == 'AI Engineer' %}
             <!-- AI engineer-specific functionality -->
             <div class="row">
-                <div class="col-md-6 mb-4">
+                <div class="col-md-4 mb-4">
                     <div class="card dashboard-card">
                         <div class="card-body">
                             <h5 class="card-title">Model Management</h5>
@@ -111,44 +146,60 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 mb-4">
+                <div class="col-md-4 mb-4">
                     <div class="card dashboard-card">
                         <div class="card-body">
-                            <h5 class="card-title">Review Prediction History</h5>
+                            <h5 class="card-title">Review Predictions</h5>
                             <p class="card-text">Review user predictions and mark them as checked.</p>
                             <a href="{% url 'review_predictions' %}" class="btn btn-primary">View Predictions</a>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-md-6 mb-4">
+                <div class="col-md-4 mb-4">
                     <div class="card dashboard-card">
                         <div class="card-body">
                             <h5 class="card-title">Data Analysis</h5>
-                            <p class="card-text">Analyze data and model performance.</p>
-                            <a href="#" class="btn btn-primary">Analyze Data</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 mb-4">
-                    <div class="card dashboard-card">
-                        <div class="card-body">
-                            <h5 class="card-title">Feature Engineering</h5>
-                            <p class="card-text">Create and optimize model features.</p>
-                            <a href="#" class="btn btn-primary">Engineer Features</a>
+                            <p class="card-text">Review Prediction Details with More Granularity and Detail</p>
+                            <a href="{% url 'ai_data_analysis' %}" class="btn btn-primary">Analyse Data</a>
                         </div>
                     </div>
                 </div>
             </div>
         {% else %}
             <!-- Regular user functionality -->
+            {% if payment_required %}
+            <div class="col-12 mb-4">
+                <div class="alert alert-warning payment-alert">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-exclamation-triangle-fill fs-1 me-3"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h4 class="alert-heading">One-Time Payment Required</h4>
+                            <p class="mb-0">Please pay the One-Time Fee of £125 to get access to the fully functional system. Your payment will unlock all prediction features and analysis tools.</p>
+                            {% if pending_invoice %}
+                                <hr>
+                                <p class="mb-2">Invoice #{{ pending_invoice.id }} is waiting for your payment. Due date: {{ pending_invoice.due_date|date:"F j, Y" }}</p>
+                                <a href="{% url 'invoice_detail' pending_invoice.id %}" class="btn btn-success">View & Pay Invoice</a>
+                            {% else %}
+                                <hr>
+                                <a href="{% url 'user_invoices' %}" class="btn btn-success">View My Invoices</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             <div class="col-md-4 mb-4">
                 <div class="card dashboard-card">
                     <div class="card-body">
                         <h5 class="card-title">Make Prediction</h5>
                         <p class="card-text">Generate insurance settlement predictions using our machine learning model.</p>
-                        <a href="{% url 'prediction_form' %}" class="btn btn-primary">Start Prediction</a>
+                        {% if has_subscription %}
+                            <a href="{% url 'prediction_form' %}" class="btn btn-primary">Start Prediction</a>
+                        {% else %}
+                            <button class="btn btn-primary" disabled title="Payment required to access predictions">Start Prediction</button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -157,7 +208,11 @@
                     <div class="card-body">
                         <h5 class="card-title">View History</h5>
                         <p class="card-text">Access your previous prediction history and results.</p>
-                        <a href="{% url 'prediction_history' %}" class="btn btn-primary">View History</a>
+                        {% if has_subscription %}
+                            <a href="{% url 'prediction_history' %}" class="btn btn-primary">View History</a>
+                        {% else %}
+                            <button class="btn btn-primary" disabled title="Payment required to access prediction history">View History</button>
+                        {% endif %}
                     </div>
                 </div>
             </div>

@@ -117,13 +117,16 @@ class ModelManager:
 model_manager = ModelManager()
 
 # Load the serialized preprocessors
-standard_scaler = joblib.load('standard_scaler.pkl')
-onehot_encoder = joblib.load('onehot_encoder.pkl')
-label_encoder = joblib.load('label_encoder.pkl')
-metadata = joblib.load('preprocessing_metadata.pkl')
+numerical_imputer = joblib.load('preprocessor/numerical_imputer.pkl')
+categorical_imputer = joblib.load('preprocessor/categorical_imputer.pkl')
+onehot_encoder = joblib.load('preprocessor/onehot_encoder.pkl')
+label_encoder = joblib.load('preprocessor/label_encoder.pkl')
+target_encoder = joblib.load('preprocessor/target_encoder.pkl')
+standard_scaler = joblib.load('preprocessor/standard_scaler.pkl')
+metadata = joblib.load('preprocessor/preprocessing_metadata.pkl')
 
 # Load training data reference for distance-based confidence calculation
-X_train_reference = joblib.load('X_train.pkl')
+X_train_reference = joblib.load('training_data/X_train.pkl')
 print(f"Training reference data loaded successfully: {len(X_train_reference)} samples")
 
 # Define request model with proper validation
@@ -168,81 +171,120 @@ class PredictionResponse(BaseModel):
     confidence: str = Field(..., description="Confidence level of the prediction")
     model_info: Dict[str, Any] = Field(..., description="Information about the model used")
     explanation: Dict[str, Any] = Field(..., description="SHAP explanation for the prediction")
+
+"""   
+# Impute missing values function
+def feature_imputer(data_dict):
+    #Impute missing values in the data using loaded imputers
+    # More robust check for missing values
+    def is_missing(value):
+        return (value is None or 
+                pd.isna(value) or 
+                value == "" or 
+                value == "NONE" or
+                (isinstance(value, str) and value.strip() == ""))
     
+    missing_fields = {k: v for k, v in data_dict.items() if is_missing(v)}
+    
+    if not missing_fields:
+        print("No missing values detected, skipping imputation")
+        return data_dict
+    
+    print(f"Found {len(missing_fields)} missing fields: {list(missing_fields.keys())}")
+    
+    try:
+        # Separate numerical and categorical features
+        numerical_features = []
+        categorical_features = []
+        
+        # Identify feature types based on metadata or infer from data type
+        for col in data_dict.keys():
+            # Skip features that aren't missing
+            if data_dict[col] is not None and not pd.isna(data_dict[col]):
+                continue
+                
+            # Classify feature as numerical or categorical
+            if isinstance(data_dict[col], (int, float)) or col in metadata.get('numerical_columns', []):
+                numerical_features.append(col)
+            else:
+                categorical_features.append(col)
+        
+        # Create dataframes for imputation
+        if numerical_features:
+            num_df = pd.DataFrame({col: [data_dict.get(col)] for col in numerical_features})
+            # Apply numerical imputation
+            imputed_num = numerical_imputer.transform(num_df)
+            # Update data_dict with imputed values
+            for i, col in enumerate(numerical_features):
+                data_dict[col] = imputed_num[0, i]
+            print(f"Imputed {len(numerical_features)} numerical features")
+            
+        if categorical_features:
+            cat_df = pd.DataFrame({col: [data_dict.get(col)] for col in categorical_features})
+            # Apply categorical imputation
+            imputed_cat = categorical_imputer.transform(cat_df)
+            # Update data_dict with imputed values
+            for i, col in enumerate(categorical_features):
+                data_dict[col] = imputed_cat[0, i]
+            print(f"Imputed {len(categorical_features)} categorical features")
+                
+    except Exception as e:
+        print(f"Warning: Imputation error: {str(e)}")
+        print("Continuing with original data")
+    
+    return data_dict
+
+"""
+
 # Preprocessing Function
 def preprocess_input(input_data):
 
     # Convert to dictionary
     data_dict = input_data.copy()
-
-    """
-    # Create mapping between underscored and spaced field names
-    field_mapping = {
-        'Accident_Description': 'Accident Description',
-        'Injury_Description': 'Injury Description',
-        'Dominant_injury': 'Dominant injury',
-        'Vehicle_Age': 'Vehicle Age',
-        'Driver_Age': 'Driver Age',
-        'Number_of_Passengers': 'Number of Passengers',
-        'Police_Report_Filed': 'Police Report Filed',
-        'Witness_Present': 'Witness Present',
-        'Vehicle_Type': 'Vehicle Type',
-        'Weather_Conditions': 'Weather Conditions'
-    }
-    
-    # Apply the mapping to create correctly named fields
-    for api_field, model_field in field_mapping.items():
-        if api_field in data_dict:
-            data_dict[model_field] = data_dict[api_field]
-            del data_dict[api_field]  # Remove the original field
-            print(f"Mapped {api_field} -> {model_field}")
-        else:
-            print(f"Warning: Missing field: {api_field}")
-    """
     
     # Apply target encoding from saved encoders
     target_encoder = {
         'Accident_Type': {
-            'Other': 805.5464516129032,
-            'Other side changed lanes and collided with clt\'s vehicle': 864.7134210526316,
-            'Other side changed lanes on a roundabout colliding with clt\'s vehicle': 1075.8030263157896,
-            'Other side collided with Clt\'s parked vehicle': 1085.85,
-            'Other side drove on wrong side of the road': 1110.7357142857143,
-            'Other side opened their door, hitting clt\'s vehicle': 1120.5214141414142,
-            'Other side overtook and hit Clt when pulling in': 1130.2614012982053,
-            'Other side overtook and pulled in too soon': 1174.067906976744,
-            'Other side overtook whilst clt was turning right': 1253.6731707317074,
-            'Other side pulled from parked position into the path of clt\'s vehicle': 1268.54,
-            'Other side pulled on to roundabout': 1343.5631891891892,
-            'Other side pulled out of side road': 1346.378130563798,
-            'Other side reversed into Clt\'s vehicle': 1369.659,
-            'Other side reversed into clt\'s stationary vehicle': 1373.4739097744362,
-            'Other side turned across Clt\'s path': 1388.966582278481,
-            'Rear end': 1426.4042424242425,
-            'Rear end - 3 car - Clt at front': 1457.1582653061225,
-            'Rear end - Clt pushed into next vehicle': 1567.01
+            'Other': 1354.6189,
+            'Other side changed lanes and collided with clt\'s vehicle': 1349.6307,
+            'Other side changed lanes on a roundabout colliding with clt\'s vehicle': 1256.6905,
+            'Other side collided with Clt\'s parked vehicle': 937.6631,
+            'Other side drove on wrong side of the road': 1461.9966,
+            'Other side opened their door, hitting clt\'s vehicle': 1195.0091,
+            'Other side overtook and hit Clt when pulling in': 1245.4420,
+            'Other side overtook and pulled in too soon': 1212.0400,
+            'Other side pulled from parked position into the path of clt\'s vehicle': 1241.0428,
+            'Other side pulled on to roundabout': 1374.8878,
+            'Other side pulled out of side road': 1396.4024,
+            'Other side reversed into Clt\'s vehicle': 1041.0907,
+            'Other side reversed into clt\'s stationary vehicle': 855.6197,
+            'Other side turned across Clt\'s path': 1391.3469,
+            'Rear end': 1134.4706,
+            'Rear end - 3 car - Clt at front': 1089.9695,
+            'Rear end - Clt pushed into next vehicle': 1352.1676
         },
         'Accident_Description': {
-            'Hit a deer on the highway.': 1206.1765262076053,
-            'Lost control on a snowy road.': 1214.5150043668123,
-            'Rear-ended at a stoplight.': 1216.653168859649,
-            'Side collision at an intersection.': 1218.5378302900108,
-            'Swerved to avoid another vehicle.': 1235.4431296891746
+            'Hit a deer on the highway.': 1214.8173,
+            'Lost control on a snowy road.': 1208.4735,
+            'Rear-ended at a stoplight.': 1193.9175,
+            'Side collision at an intersection.': 1243.8671,
+            'Swerved to avoid another vehicle.': 1223.9544
         },
         'Injury_Description': {
-            'Concussion and bruised ribs.': 1172.1275582685903,
-            'Fractured arm and leg.': 1193.0538951695785,
-            'Minor cuts and scrapes.': 1226.5536103896104,
-            'Sprained ankle and wrist.': 1244.8258804695838,
-            'Whiplash and minor bruises.': 1251.0179418103448
+            'Concussion and bruised ribs.': 1171.8660,
+            'Fractured arm and leg.': 1229.4915,
+            'Minor cuts and scrapes.': 1254.8799,
+            'Sprained ankle and wrist.': 1261.8119,
+            'Whiplash and minor bruises.': 1164.7442
         },
         'Dominant_Injury': {
-            'Arms': 1192.95743993372,
-            'Hips': 1218.5957589285713,
-            'Legs': 1228.2536333052985,
-            'Multiple': 1232.9795407279028
+            'Arms': 1221.5548,
+            'Hips': 1232.9304,
+            'Legs': 1223.1914,
+            'Multiple': 1188.2923
         }
     }
+
     # Apply target encoding using hardcoded values
     for col in metadata['target_encoding_columns']:
         if col in target_encoder:
@@ -255,21 +297,6 @@ def preprocess_input(input_data):
             else:
                 print(f"Warning: Using default encoding for {col}={data_dict.get(col, 'MISSING')}")
                 data_dict[col] = default
-        else:
-            print(f"Warning: No hardcoded encoder for {col}, using original")
-            # Fall back to original encoder if available
-            if target_encoder and col in target_encoder:
-                encoder = target_encoder[col]
-                default = sum(encoder.values()) / len(encoder)
-                data_dict[col] = encoder.get(data_dict[col], default)
-
-    """
-    for col in metadata['target_encoding_columns']:
-        encoder = target_encoder[col]
-        # Use default value if category not seen during training
-        default = sum(encoder.values()) / len(encoder)
-        data_dict[col] = encoder.get(data_dict[col], default)
-    """
     
     # Apply one-hot encoding from saved encoder
     if metadata['onehot_encoding_columns']:
@@ -291,6 +318,7 @@ def preprocess_input(input_data):
         data_dict[col] = int(data_dict[col])
     
     return data_dict
+
 
 # Feature Scaling Function
 def scale_features(data_dict):
@@ -347,7 +375,7 @@ def calculate_confidence_percentage(model_input, model_type, n_neighbors=10):
     distance_scale = max(median_dist, 0.1)  # Avoid division by zero
     
     # Calculate confidence (higher distance = lower confidence)
-    raw_confidence = 100 * np.exp(-avg_distance / distance_scale)
+    raw_confidence = 100 * np.exp(-0.5 * (avg_distance) / distance_scale)
     
     # Clip confidence to 0-100 range
     confidence = max(0, min(100, raw_confidence))
@@ -360,6 +388,68 @@ def calculate_confidence_percentage(model_input, model_type, n_neighbors=10):
     final_confidence = min(100, confidence + proximity_bonus)
     
     return f"{final_confidence:.1f}"
+
+def calculate_model_specific_confidence(model, model_input):
+    """Calculate confidence based on the specific type of model with penalty for aggressive predictions"""
+    model_type = type(model).__name__
+    
+    if hasattr(model, 'estimators_'):
+        # Check if estimators are actual model objects
+        if hasattr(model.estimators_[0], 'predict'):
+            # Original code for ensemble models
+            predictions = []
+            for estimator in model.estimators_:
+                pred = estimator.predict(model_input)[0]
+                predictions.append(pred)
+                
+            # Calculate statistical dispersion metrics
+            mean_pred = np.mean(predictions)
+            std_dev = np.std(predictions)
+            
+            # Normalize by the prediction magnitude
+            coefficient_of_variation = std_dev / max(abs(mean_pred), 1.0)
+            
+            # MODIFICATION 1: Add penalty for predictions above reasonable threshold
+            # Assuming avg settlement in training data is around 1200 based on your target encodings
+            avg_settlement = 1200
+            high_settlement_threshold = 2 * avg_settlement  # 2400 pounds
+            
+            magnitude_penalty = 0
+            if mean_pred > high_settlement_threshold:
+                # Proportional penalty: 5% reduction per 1000 pounds above threshold
+                magnitude_penalty = 5 * (mean_pred - high_settlement_threshold) / 1000
+                print(f"Applied magnitude penalty of {magnitude_penalty:.1f}% for high prediction (£{mean_pred:.2f})")
+            
+            # MODIFICATION 2: Increase coefficient in exponential to be more sensitive to variation
+            sensitivity = 4.0  # Increased from 3.0 to be more sensitive to variation
+            
+            # Calculate base confidence (without magnitude penalty)
+            base_confidence = 100 * np.exp(-sensitivity * coefficient_of_variation)
+            
+            # Apply magnitude penalty
+            ensemble_confidence = base_confidence * (1 - (magnitude_penalty / 100))
+            
+            # Also calculate KNN-based confidence
+            knn_confidence = float(calculate_confidence_percentage(model_input, "active"))
+            
+            # Compare both methods and use the higher confidence
+            if ensemble_confidence > knn_confidence:
+                print(f"Using ensemble confidence: {ensemble_confidence:.1f}% (KNN: {knn_confidence:.1f}%)")
+                confidence = ensemble_confidence
+            else:
+                print(f"Using KNN confidence: {knn_confidence:.1f}% (Ensemble: {ensemble_confidence:.1f}%)")
+                confidence = knn_confidence
+            
+            print(f"Final confidence for {model_type}: {confidence:.1f}% (CV: {coefficient_of_variation:.3f})")
+            return f"{min(100, max(0, confidence)):.1f}"
+        else:
+            # Fall back to KNN approach for models with non-model estimators
+            print(f"Model {model_type} has estimators but they're not predictors. Using KNN confidence.")
+            return calculate_confidence_percentage(model_input, "active")
+    else:
+        # For non-ensemble models, just use the KNN approach
+        print(f"Model {model_type} is not an ensemble. Using KNN confidence.")
+        return calculate_confidence_percentage(model_input, "active")
 
 @app.get("/health")
 async def health_check():
@@ -404,6 +494,8 @@ async def predict_settlement(
         print("\n===== ORIGINAL INPUT DATA =====")
         print(json.dumps(input_data, indent=2, default=str))
 
+        #imputed_data = feature_imputer(input_data)
+
         # Preprocess the input data using the saved preprocessors
         preprocessed_data = preprocess_input(input_data)
 
@@ -413,8 +505,11 @@ async def predict_settlement(
 
         scaled_preprocessed_data = scale_features(preprocessed_data)
 
-        print("\n===== DATA AFTER SCALING =====")
-        print(json.dumps(scaled_preprocessed_data, indent=2, default=str))
+        if model_manager.requires_input_scaling():
+            print("\n===== DATA AFTER SCALING =====")
+            print(json.dumps(scaled_preprocessed_data, indent=2, default=str))
+        else:
+            print("\n===== NO SCALING REQUIRED FOR THIS MODEL =====")
 
         # Create model input directly from scaled data
         expected_features = model.feature_names_in_
@@ -440,7 +535,7 @@ async def predict_settlement(
         prediction = model.predict(model_input)[0]
 
         # Calculate confidence score using distance-based method
-        confidence_score = calculate_confidence_percentage(model_input, model_type)
+        confidence_score = calculate_model_specific_confidence(model,model_input)
         
         # Print prediction results as debug message
         print("\n===== PREDICTION RESULTS =====")
@@ -533,7 +628,7 @@ async def update_reference_data(current_user: dict = Depends(get_current_user)):
             )
             
         # Path to the new reference data
-        reference_data_path = "X_train.pkl"
+        reference_data_path = "training_data/X_train.pkl"
         
         if os.path.exists(reference_data_path):
             try:

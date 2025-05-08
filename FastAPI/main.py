@@ -484,6 +484,9 @@ async def predict_settlement(
                 model=model,
                 feature_names=model.feature_names_in_ 
             )
+        
+            explainer.set_training_data(X_train_reference)
+
         except ValueError as e:
             raise HTTPException(status_code=500, detail=f"Model not available: {str(e)}")
 

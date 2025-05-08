@@ -68,16 +68,45 @@ class ShapExplainer:
                         self.explainer = shap.KernelExplainer(self.model.predict, background_data)
                     else:
                         self.explainer = shap.LinearExplainer(self.model, background)
+
+                elif any(ensemble_name in model_type.lower() for ensemble_name in ["stacking", "stacked", "stackingregressor", "StackingRegressor"]):
+                    print("== XAI DEBUG MSG == Detected stacking ensemble model")
+                    # Stacking ensembles need background data for KernelExplainer
+                    background_data = None
+                    if hasattr(self, 'background_data'):
+                        print("== XAI DEBUG MSG == Using provided background data")
+                        background_data = self.background_data
+                    elif hasattr(self, 'X_train'):
+                        print("== XAI DEBUG MSG == Using X_train samples for background data")
+                        background_data = self.X_train[:50]
+                        
+                    if background_data is None:
+                        print("== XAI DEBUG MSG == ERROR: No background data available for stacking ensemble")
+                        print("== XAI DEBUG MSG == Use set_background_data() method first")
+                        raise ValueError("Background data required for stacking ensemble models")
+                    
+                    # Create the KernelExplainer for the stacking model
+                    print("== XAI DEBUG MSG == Creating KernelExplainer for stacking ensemble model")
+                    # Use model.predict for regression
+                    prediction_function = self.model.predict
+                    self.explainer = shap.KernelExplainer(prediction_function, background_data)
+                    print(f"== XAI DEBUG MSG == KernelExplainer created for stacking model with expected_value: {self.explainer.expected_value}")
                 
                 # Fallback for any model type
                 else:
                     print("== XAI DEBUG MSG == Using KernelExplainer as fallback for unknown model type")
-                    # Would need some background data here
-                    background_data = input_data if 'input_data' in locals() else None
-                    if background_data is None and hasattr(self, 'X_train'):
-                        background_data = self.X_train[:100]
+                    # Fix background data handling
+                    background_data = None
+                    if hasattr(self, 'background_data'):
+                        print("== XAI DEBUG MSG == Using provided background data")
+                        background_data = self.background_data
+                    elif hasattr(self, 'X_train'):
+                        print("== XAI DEBUG MSG == Using X_train samples for background data")
+                        background_data = self.X_train[:50]
+                        
                     if background_data is None:
                         print("== XAI DEBUG MSG == ERROR: No background data available for KernelExplainer")
+                        print("== XAI DEBUG MSG == Use set_background_data() method first")
                         raise ValueError("Background data required for KernelExplainer")
                     
                     # Use model.predict for regression, model.predict_proba for classification
@@ -303,3 +332,17 @@ class ShapExplainer:
             import traceback
             print(f"== XAI DEBUG MSG == Traceback: {traceback.format_exc()}")
             raise
+    
+    def set_background_data(self, background_data):
+        """Set background data for KernelExplainer or other explainers that need it"""
+        print(f"== XAI DEBUG MSG == Setting background data with shape: {background_data.shape}")
+        self.background_data = background_data
+        # Reset explainer when background data changes
+        self.explainer = None
+        print("== XAI DEBUG MSG == Explainer reset due to new background data")
+        
+    def set_training_data(self, X_train):
+        """Set training data which can be sampled for background data if needed"""
+        print(f"== XAI DEBUG MSG == Setting X_train with shape: {X_train.shape}")
+        self.X_train = X_train
+        # We don't reset the explainer here since this is just a fallback
